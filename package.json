@@ -1,0 +1,16 @@
+{
+  "name": "arena-collector",
+  "version": "1.0.0",
+  "description": "DOM-only real-time multiplayer game (2-4 players) using WebSocket.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node -c server.js && node -c client.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

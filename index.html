@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena Collector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- JOIN SCREEN -->
+  <section id="joinScreen" class="screen">
+    <div class="card">
+      <h1>Arena Collector</h1>
+      <p class="subtitle">Введіть ім'я та приєднайтесь до лобі (2–4 гравці)</p>
+      <input id="nameInput" maxlength="16" placeholder="Ваше ім'я" autocomplete="off">
+      <button id="joinBtn">Приєднатись</button>
+      <p id="joinError" class="error"></p>
+
+      <div id="lobby" class="hidden">
+        <h2>Лобі</h2>
+        <ul id="lobbyList"></ul>
+        <button id="startBtn" class="hidden">Почати гру (лідер)</button>
+        <p id="lobbyHint" class="hint"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="gameScreen" class="screen hidden">
+    <header id="hud">
+      <div id="scoreboard"></div>
+      <div id="timer">90</div>
+      <button id="menuBtn">☰ Меню</button>
+    </header>
+
+    <div id="arena">
+      <!-- coins & players injected here as DOM elements -->
+    </div>
+
+    <div id="toast"></div>
+  </section>
+
+  <!-- MENU OVERLAY -->
+  <div id="menuOverlay" class="overlay hidden">
+    <div class="card">
+      <h2>Меню</h2>
+      <button id="pauseBtn">Пауза</button>
+      <button id="resumeBtn">Продовжити</button>
+      <button id="quitBtn">Вийти в лобі</button>
+      <button id="closeMenuBtn">Закрити</button>
+    </div>
+  </div>
+
+  <!-- WINNER OVERLAY -->
+  <div id="winnerOverlay" class="overlay hidden">
+    <div class="card">
+      <h2 id="winnerText"></h2>
+      <button id="playAgainBtn">Грати ще раз (лідер)</button>
+    </div>
+  </div>
+
+  <script src="client.js"></script>
+</body>
+</html>
