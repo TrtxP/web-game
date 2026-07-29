@@ -111,22 +111,51 @@
     winnerOverlay.classList.add('hidden');
   });
 
-  // ---------- keyboard input (state map => no long-press glitches) ----------
-  const keys = { up: false, down: false, left: false, right: false };
-  const KEYMAP = {
-    ArrowUp: 'up', KeyW: 'up',
-    ArrowDown: 'down', KeyS: 'down',
-    ArrowLeft: 'left', KeyA: 'left',
-    ArrowRight: 'right', KeyD: 'right',
-  };
+  // Map to track active keys
+  const pressedKeys = {};
+
   window.addEventListener('keydown', (e) => {
-    const k = KEYMAP[e.code];
-    if (k) { keys[k] = true; e.preventDefault(); }
+    // Guard clause: Allow normal typing if focused on an input field
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      return;
+    }
+
+    const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'];
+  
+    if (movementKeys.includes(e.key) || movementKeys.includes(e.code)) {
+      e.preventDefault(); // Prevent page scrolling during gameplay
+      pressedKeys[e.code] = true;
+      sendInputToServer();
+    }
   });
+
   window.addEventListener('keyup', (e) => {
-    const k = KEYMAP[e.code];
-    if (k) { keys[k] = false; e.preventDefault(); }
+    // Guard clause: Allow normal typing if focused on an input field
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      return;
+    }
+
+    const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'];
+
+    if (movementKeys.includes(e.key) || movementKeys.includes(e.code)) {
+      pressedKeys[e.code] = false;
+      sendInputToServer();
+    }
   });
+
+  function sendInputToServer() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const up = !!(pressedKeys['KeyW'] || pressedKeys['ArrowUp']);
+    const down = !!(pressedKeys['KeyS'] || pressedKeys['ArrowDown']);
+    const left = !!(pressedKeys['KeyA'] || pressedKeys['ArrowLeft']);
+    const right = !!(pressedKeys['KeyD'] || pressedKeys['ArrowRight']);
+
+    ws.send(JSON.stringify({
+      type: 'input',
+      up, down, left, right
+    }));
+  }
 
   // Send input at a fixed small interval — decoupled from render loop,
   // so key state changes are captured immediately without flooding the socket.
