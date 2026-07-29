@@ -13,7 +13,12 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
 .screen {
   height: 100vh;

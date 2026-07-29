@@ -45,6 +45,17 @@
   const playerEls = new Map(); // id -> DOM element
   const coinEls = new Map();   // id -> DOM element
 
+  // ---------- Screen View Switcher Helper ----------
+  function showScreen(screenToShow) {
+    joinScreen.classList.add('hidden');
+    lobby.classList.add('hidden');
+    gameScreen.classList.add('hidden');
+
+    if (screenToShow) {
+      screenToShow.classList.remove('hidden');
+    }
+  }
+
   // ---------- audio (WebAudio, no external files) ----------
   const actx = new (window.AudioContext || window.webkitAudioContext)();
   function beep(freq, dur, type = 'sine', vol = 0.15) {
@@ -64,7 +75,6 @@
     else if (name === 'start') beep(440, 0.25, 'sawtooth', 0.15);
     else if (name === 'end') beep(220, 0.4, 'square', 0.15);
     else if (name === 'loss') {
-      // Low decaying sawtooth wave for loss/forfeit
       const osc = actx.createOscillator();
       const gain = actx.createGain();
       osc.type = 'sawtooth';
@@ -111,7 +121,7 @@
     winnerOverlay.classList.add('hidden');
   });
 
-  // Map to track active keys
+  // ---------- keyboard input ----------
   const pressedKeys = {};
 
   window.addEventListener('keydown', (e) => {
@@ -157,13 +167,10 @@
     }));
   }
 
-  // Send input at a fixed small interval — decoupled from render loop,
-  // so key state changes are captured immediately without flooding the socket.
+  // Send input periodically during active gameplay
   setInterval(() => {
     if (gameScreen.classList.contains('hidden')) return;
-    const x = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    const y = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-    ws.send(JSON.stringify({ type: 'input', x, y }));
+    sendInputToServer();
   }, 1000 / 30);
 
   // ---------- websocket message handling ----------
@@ -174,7 +181,8 @@
         myId = msg.you;
         arenaSize = msg.arena;
         joinError.textContent = '';
-        lobby.classList.remove('hidden');
+        showScreen(lobby);
+        showToast('Приєднано до лобі!');
         break;
       case 'joinError':
         joinError.textContent = msg.reason;
@@ -192,11 +200,15 @@
   });
 
   function onState(msg) {
-    // lobby list + lead controls
+    // ---------- Lobby State handling ----------
     if (msg.status === 'lobby') {
-      joinScreen.classList.remove('hidden');
-      gameScreen.classList.add('hidden');
+      if (myId) {
+        showScreen(lobby);
+      } else {
+        showScreen(joinScreen);
+      }
       winnerOverlay.classList.add('hidden');
+
       lobbyList.innerHTML = '';
       msg.players.forEach(p => {
         const li = document.createElement('li');
@@ -212,8 +224,8 @@
       return;
     }
 
-    joinScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
+    // ---------- In-Game / Ended State handling ----------
+    showScreen(gameScreen);
 
     if (msg.status === 'ended') {
       const sorted = [...msg.players].sort((a, b) => b.score - a.score);
@@ -221,13 +233,15 @@
         ? `🏆 ${sorted[0].name} переміг з рахунком ${sorted[0].score}!`
         : 'Гру завершено.';
       winnerOverlay.classList.remove('hidden');
+    } else {
+      winnerOverlay.classList.add('hidden');
     }
 
     timerEl.textContent = msg.timeLeft;
     renderScoreboard(msg.players);
     renderCoins(msg.coins);
 
-    // shift interpolation buffers
+    // Shift interpolation buffers
     prevPlayers = curPlayers;
     curPlayers = new Map(msg.players.map(p => [p.id, p]));
     const now = performance.now();
@@ -289,7 +303,7 @@
       const el = ensurePlayerEl(cur);
       el.style.transform = `translate(${x}px, ${y}px)`;
     }
-    // remove players who left
+    // Remove players who left
     for (const [id, el] of playerEls) {
       if (!curPlayers.has(id)) { el.remove(); playerEls.delete(id); }
     }

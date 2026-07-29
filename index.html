@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arena Collector</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Collector</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -16,13 +16,16 @@
       <input id="nameInput" maxlength="16" placeholder="Ваше ім'я" autocomplete="off">
       <button id="joinBtn">Приєднатись</button>
       <p id="joinError" class="error"></p>
+    </div>
+  </section>
 
-      <div id="lobby" class="hidden">
-        <h2>Лобі</h2>
-        <ul id="lobbyList"></ul>
-        <button id="startBtn" class="hidden">Почати гру (лідер)</button>
-        <p id="lobbyHint" class="hint"></p>
-      </div>
+  <!-- LOBBY SCREEN (Extracted to top-level so it won't disappear with joinScreen) -->
+  <section id="lobby" class="screen hidden">
+    <div class="card">
+      <h2>Лобі</h2>
+      <ul id="lobbyList"></ul>
+      <button id="startBtn" class="hidden">Почати гру (лідер)</button>
+      <p id="lobbyHint" class="hint"></p>
     </div>
   </section>
 
