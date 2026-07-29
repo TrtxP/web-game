@@ -63,6 +63,19 @@
     if (name === 'collect') beep(880, 0.12, 'triangle', 0.12);
     else if (name === 'start') beep(440, 0.25, 'sawtooth', 0.15);
     else if (name === 'end') beep(220, 0.4, 'square', 0.15);
+    else if (name === 'loss') {
+      // Low decaying sawtooth wave for loss/forfeit
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, actx.currentTime);
+      osc.frequency.linearRampToValueAtTime(50, actx.currentTime + 0.35);
+      gain.gain.setValueAtTime(0.2, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.35);
+      osc.connect(gain).connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.35);
+    }
   }
 
   // ---------- toast messages ----------

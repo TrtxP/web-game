@@ -1,13 +1,6 @@
 /**
- * Arena Collector — server
- * Single-room WebSocket server. Handles:
- *  - joining (unique player names)
- *  - lead player starting the match
- *  - authoritative game loop (movement, coin collisions, scoring, timer)
- *  - pause/resume/quit broadcast with attribution
- *
- * Run: node server.js
- * Then expose to the internet (see README) so remote players can connect.
+ * Arena Collector — Server
+ * Single-room authoritative WebSocket server.
  */
 
 const http = require('http');
@@ -20,23 +13,25 @@ const MAX_PLAYERS = 4;
 const ARENA_W = 900;
 const ARENA_H = 600;
 const PLAYER_SIZE = 28;
-const PLAYER_SPEED = 220; // px/sec, identical for every player => fairness
+const PLAYER_SPEED = 220; // px/sec
 const ROUND_SECONDS = 90;
 const COIN_COUNT = 12;
 const COIN_SIZE = 16;
-const TICK_HZ = 30; // authoritative simulation rate sent to clients
+const TICK_HZ = 30;
 
 const COLORS = ['#ff5d73', '#4fc3f7', '#ffd166', '#9b5de5'];
 
-// ---------- static file server ----------
+// Static File Server
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 const server = http.createServer((req, res) => {
   const requestPath = decodeURIComponent((req.url || '/').split('?')[0]);
   const relativePath = requestPath === '/' ? 'index.html' : requestPath.replace(/^[/\\]+/, '');
   const filePath = path.resolve(__dirname, relativePath);
+  
   if (!filePath.startsWith(`${__dirname}${path.sep}`)) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
+  
   const ext = path.extname(filePath);
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
@@ -47,12 +42,11 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-// ---------- room / game state ----------
 function freshCoins() {
   const coins = [];
   for (let i = 0; i < COIN_COUNT; i++) {
     coins.push({
-      id: 'c' + i,
+      id: 'c' + i + '_' + Math.random().toString(36).slice(2, 6),
       x: 40 + Math.random() * (ARENA_W - 80),
       y: 40 + Math.random() * (ARENA_H - 80),
     });
@@ -102,7 +96,7 @@ function resetGame() {
   }
 }
 
-// ---------- authoritative loop ----------
+// Authoritative Game Loop
 let lastTick = Date.now();
 setInterval(() => {
   const now = Date.now();
@@ -112,16 +106,17 @@ setInterval(() => {
   if (room.status === 'playing') {
     room.timeLeft -= dt;
 
-    // movement
+    // Movement
     for (const p of room.players.values()) {
       const len = Math.hypot(p.input.x, p.input.y) || 1;
-      const nx = p.x + (p.input.x / len) * PLAYER_SPEED * dt * (p.input.x !== 0 || p.input.y !== 0 ? 1 : 0);
-      const ny = p.y + (p.input.y / len) * PLAYER_SPEED * dt * (p.input.x !== 0 || p.input.y !== 0 ? 1 : 0);
+      const isMoving = p.input.x !== 0 || p.input.y !== 0;
+      const nx = p.x + (p.input.x / len) * PLAYER_SPEED * dt * (isMoving ? 1 : 0);
+      const ny = p.y + (p.input.y / len) * PLAYER_SPEED * dt * (isMoving ? 1 : 0);
       p.x = Math.max(0, Math.min(ARENA_W - PLAYER_SIZE, nx));
       p.y = Math.max(0, Math.min(ARENA_H - PLAYER_SIZE, ny));
     }
 
-    // coin collisions
+    // Coin Collisions
     room.coins = room.coins.filter(coin => {
       for (const p of room.players.values()) {
         const dx = (p.x + PLAYER_SIZE / 2) - coin.x;
@@ -129,11 +124,12 @@ setInterval(() => {
         if (Math.hypot(dx, dy) < PLAYER_SIZE / 2 + COIN_SIZE / 2) {
           p.score += 10;
           broadcast({ type: 'sfx', sound: 'collect' });
-          return false; // consumed
+          return false;
         }
       }
       return true;
     });
+
     if (room.coins.length === 0) room.coins = freshCoins();
 
     if (room.timeLeft <= 0) {
@@ -155,7 +151,32 @@ function computeWinnerText() {
   return `${top.name} переміг з рахунком ${top.score}!`;
 }
 
-// ---------- connection handling ----------
+function handleQuit(ws) {
+  const p = room.players.get(ws);
+  if (!p) return;
+
+  room.players.delete(ws);
+  broadcast({ type: 'sfx', sound: 'loss' });
+  broadcast({ type: 'message', text: `${p.name} покинув(ла) гру.` });
+
+  if (p.isLead && room.players.size > 0) {
+    const nextWs = room.players.keys().next().value;
+    const nextP = room.players.get(nextWs);
+    nextP.isLead = true;
+    room.leadWs = nextWs;
+    broadcast({ type: 'message', text: `${nextP.name} тепер лідер сесії.` });
+  }
+
+  if (room.players.size < 2 && room.status === 'playing') {
+    room.status = 'lobby';
+    broadcast({ type: 'message', text: 'Недостатньо гравців для продовження. Повернення в лобі.' });
+  } else if (room.players.size === 0) {
+    room.status = 'lobby';
+  }
+
+  sendState();
+}
+
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg;
@@ -163,20 +184,7 @@ wss.on('connection', (ws) => {
     handleMessage(ws, msg);
   });
 
-  ws.on('close', () => {
-    const p = room.players.get(ws);
-    room.players.delete(ws);
-    if (p) {
-      broadcast({ type: 'message', text: `${p.name} покинув гру.` });
-      if (p.isLead && room.players.size > 0) {
-        const next = room.players.values().next().value;
-        next.isLead = true;
-        room.leadWs = [...room.players.keys()].find(k => room.players.get(k) === next);
-        broadcast({ type: 'message', text: `${next.name} тепер лідер сесії.` });
-      }
-      sendState();
-    }
-  });
+  ws.on('close', () => handleQuit(ws));
 });
 
 function handleMessage(ws, msg) {
@@ -185,12 +193,13 @@ function handleMessage(ws, msg) {
       const name = (msg.name || '').trim().slice(0, 16);
       if (!name) return ws.send(JSON.stringify({ type: 'joinError', reason: 'Порожнє ім’я.' }));
       if (room.players.size >= MAX_PLAYERS) return ws.send(JSON.stringify({ type: 'joinError', reason: 'Кімната заповнена (макс 4).' }));
+      
       const nameTaken = [...room.players.values()].some(p => p.name.toLowerCase() === name.toLowerCase());
       if (nameTaken) return ws.send(JSON.stringify({ type: 'joinError', reason: 'Це ім’я вже зайняте.' }));
 
       const isFirst = room.players.size === 0;
       const p = {
-        id: Math.random().toString(36).slice(2, 9),
+        id: 'p_' + Math.random().toString(36).slice(2, 9),
         ws, name,
         color: COLORS[room.players.size % COLORS.length],
         x: 60 + Math.random() * (ARENA_W - 120),
@@ -199,17 +208,28 @@ function handleMessage(ws, msg) {
         input: { x: 0, y: 0 },
         isLead: isFirst,
       };
+
       if (isFirst) room.leadWs = ws;
       room.players.set(ws, p);
-      ws.send(JSON.stringify({ type: 'joined', you: p.id, arena: { w: ARENA_W, h: ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE } }));
+
+      ws.send(JSON.stringify({ 
+        type: 'joined', 
+        you: p.id, 
+        arena: { w: ARENA_W, h: ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE } 
+      }));
+
       broadcast({ type: 'message', text: `${p.name} приєднався(лась) до лобі.` });
       sendState();
       break;
     }
-    case 'start': {
+
+    case 'start':
+    case 'startGame': {
       const p = room.players.get(ws);
       if (!p || !p.isLead || room.status !== 'lobby') return;
-      if (room.players.size < 2) return ws.send(JSON.stringify({ type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' }));
+      if (room.players.size < 2) {
+        return ws.send(JSON.stringify({ type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' }));
+      }
       resetGame();
       room.status = 'playing';
       broadcast({ type: 'sfx', sound: 'start' });
@@ -217,29 +237,43 @@ function handleMessage(ws, msg) {
       sendState();
       break;
     }
+
     case 'input': {
       const p = room.players.get(ws);
       if (!p || room.status !== 'playing') return;
-      p.input.x = Math.max(-1, Math.min(1, msg.x || 0));
-      p.input.y = Math.max(-1, Math.min(1, msg.y || 0));
+      // Supports object input {up, down, left, right} or vector {x, y}
+      if (typeof msg.up !== 'undefined') {
+        p.input.x = (msg.right ? 1 : 0) - (msg.left ? 1 : 0);
+        p.input.y = (msg.down ? 1 : 0) - (msg.up ? 1 : 0);
+      } else {
+        p.input.x = Math.max(-1, Math.min(1, msg.x || 0));
+        p.input.y = Math.max(-1, Math.min(1, msg.y || 0));
+      }
       break;
     }
-    case 'menuAction': {
+
+    case 'menuAction':
+    case 'pauseGame':
+    case 'resumeGame':
+    case 'quitGame': {
       const p = room.players.get(ws);
       if (!p) return;
-      if (msg.action === 'pause' && room.status === 'playing') {
+      const act = msg.action || msg.type.replace('Game', '');
+
+      if (act === 'pause' && room.status === 'playing') {
         room.status = 'paused';
         broadcast({ type: 'message', text: `${p.name} поставив(ла) гру на паузу.` });
-      } else if (msg.action === 'resume' && room.status === 'paused') {
+      } else if (act === 'resume' && room.status === 'paused') {
         room.status = 'playing';
         broadcast({ type: 'message', text: `${p.name} відновив(ла) гру.` });
-      } else if (msg.action === 'quit') {
-        room.status = 'lobby';
-        broadcast({ type: 'message', text: `${p.name} завершив(ла) гру достроково.` });
+      } else if (act === 'quit') {
+        handleQuit(ws);
+        return;
       }
       sendState();
       break;
     }
+
     case 'playAgain': {
       const p = room.players.get(ws);
       if (!p || !p.isLead) return;

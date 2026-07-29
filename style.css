@@ -138,3 +138,29 @@ button:hover { filter: brightness(1.08); }
   justify-content: center;
   z-index: 10;
 }
+
+/* Colorblind & High-Contrast Mode */
+body.colorblind-mode .player {
+  border: 2px dashed #ffffff !important;
+  outline: 2px solid #000000;
+}
+
+body.colorblind-mode .player[style*="ff5d73"] {
+  background-image: repeating-linear-gradient(45deg, #ff5d73, #ff5d73 4px, #000 4px, #000 8px) !important;
+}
+
+body.colorblind-mode .player[style*="4fc3f7"] {
+  background-image: radial-gradient(circle, #ffffff 30%, #4fc3f7 31%) !important;
+  background-size: 8px 8px !important;
+}
+
+body.colorblind-mode .coin {
+  border: 2px solid #000;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.accessibility-toggle-btn {
+  background: #333a4d;
+  color: #fff;
+  margin-top: 10px;
+}
