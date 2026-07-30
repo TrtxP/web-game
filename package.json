@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node -c server.js && node -c client.js"
+    "test": "node -c server.js && node -c server/config.js && node -c server/static-server.js && node -c server/game-room.js && node -c server/game-loop.js && node -c server/message-handler.js && node -c client/dom.js && node -c client/audio.js && node -c client/input.js && node -c client/renderer.js && node -c client.js"
   },
   "keywords": [],
   "author": "",
