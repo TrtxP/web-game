@@ -1,76 +1,76 @@
 # Arena Collector
 
-Реал-таймовий браузерний мультиплеєр (2–4 гравці) реалізований **виключно на DOM-елементах**
-(canvas не використовується). Гравці одночасно рухаються по арені й збирають монети;
-перемагає той, у кого найбільше очок, коли закінчиться таймер.
+A real-time browser-based multiplayer game (2–4 players) implemented **exclusively using DOM elements**
+(no canvas). Players move simultaneously around an arena and collect coins;
+the player with the highest score when the timer ends wins.
 
-## Огляд проєкту
+## Project Overview
 
-- **Сервер**: Node.js + `ws` — авторитетна логіка гри, кімната (лобі), рух гравців,
-  зіткнення з монетами, рахунок, таймер, пауза/резюм/вихід з атрибуцією дії.
-- **Клієнт**: чистий HTML/CSS/JS. Персонажі та монети — `<div>`, що рухаються через
-  `transform: translate(...)` (без reflow). Рендер-цикл на `requestAnimationFrame`
-  з інтерполяцією між серверними станами для плавності 60 FPS незалежно від
-  мережевої частоти сервера (30 Hz).
-- **Керування**: WASD / стрілки, стан клавіш зберігається в мапі (без глітчів при
-  довгому утриманні).
-- **Звук**: генерується через Web Audio API (осцилятори) — зовнішні файли не потрібні.
+- **Server**: Node.js + `ws` — authoritative game logic, room (lobby), player movement,
+  coin collision detection, score tracking, timer, pause/resume/exit with action attribution.
+- **Client**: pure HTML/CSS/JS. Characters and coins are `<div>` elements that move via
+  `transform: translate(...)` (without reflow). Render loop uses `requestAnimationFrame`
+  with interpolation between server states for smooth 60 FPS regardless of
+  server network frequency (30 Hz).
+- **Controls**: WASD / arrow keys, key state stored in a map (no glitches with
+  long key presses).
+- **Sound**: generated via Web Audio API (oscillators) — no external files needed.
 
-## Встановлення
+## Installation
 
 ```bash
 npm install
 npm start
 ```
 
-Сервер підніметься на `http://localhost:8080`.
+The server will start on `http://localhost:8080`.
 
-## Використання
+## Usage
 
-1. Кожен гравець відкриває URL сервера у браузері, вводить унікальне ім'я, тисне
-   «Приєднатись» і потрапляє в лобі.
-2. Перший, хто приєднався, стає **лідером сесії** — тільки він бачить кнопку
-   «Почати гру» (доступна від 2 гравців).
-3. Після старту всі рухаються одночасно (WASD/стрілки) й збирають монети.
-4. Кнопка «☰ Меню» дозволяє поставити гру на паузу, відновити або вийти в лобі —
-   про кожну дію всі гравці бачать повідомлення з іменем того, хто це зробив.
-5. Таймер (90 сек за замовчуванням, `ROUND_SECONDS` в `server.js`) рахує назад;
-   рахунок оновлюється в реальному часі для всіх.
-6. Після завершення показується переможець; лідер може натиснути «Грати ще раз».
+1. Each player opens the server URL in a browser, enters a unique name, clicks
+   "Join" and enters the lobby.
+2. The first player to join becomes the **session leader** — only they see the
+   "Start Game" button (available with 2+ players).
+3. After starting, all players move simultaneously (WASD/arrow keys) and collect coins.
+4. The "☰ Menu" button allows pausing, resuming, or leaving the lobby —
+   all players see a message showing who performed each action.
+5. Timer (90 seconds by default, `ROUND_SECONDS` in `server.js`) counts down;
+   score updates in real-time for everyone.
+6. After completion, the winner is shown; the leader can click "Play Again".
 
-## Розгортання в інтернет (не локальна мережа)
+## Deploying to the Internet (not local network)
 
-Для доступу гравців з різних місць потрібен публічний тунель або хостинг, наприклад:
+For players to access from different locations, you need a public tunnel or hosting, for example:
 
-- **ngrok**: `ngrok http 8080` → дає публічний URL, що проксує на локальний сервер.
-- **Railway / Render / Fly.io**: задеплоїти репозиторій напряму (Node.js buildpack,
-  команда старту `npm start`, порт з `process.env.PORT`, це вже враховано в коді).
+- **ngrok**: `ngrok http 8080` → provides a public URL that proxies to your local server.
+- **Railway / Render / Fly.io**: deploy the repository directly (Node.js buildpack,
+  start command `npm start`, port from `process.env.PORT`, already handled in code).
 
-## Відповідність вимогам завдання
+## Requirements Compliance
 
-- 2–4 гравці, персонажі рівні (однакова швидкість, однакові стартові умови).
-- Гра не покрокова: рух і збір монет відбуваються одночасно для всіх у реальному часі.
-- Кожен бачить позиції й рахунок усіх інших гравців постійно.
-- Приєднання через URL + унікальне ім'я; лідер сесії керує стартом.
-- DOM-рендеринг, `requestAnimationFrame`, мінімум шарів (тільки `transform`, без
-  зміни `top/left`, що викликає reflow) — для стабільних 60 FPS.
-- Меню: пауза / резюм / вихід з повідомленням «хто це зробив».
-- Рахунок у реальному часі, переможець показується в кінці.
-- Таймер зворотного відліку.
-- Клавіатурне керування без затримок/глітчів (мапа стану клавіш + фіксований
-  інтервал відправки вводу, відв'язаний від рендер-циклу).
-- Звукові ефекти: старт гри, збір монети, кінець гри.
+- 2–4 players, characters are equal (same speed, same starting conditions).
+- The game is real-time, not turn-based: movement and coin collection happen simultaneously for all.
+- Each player sees positions and scores of all other players constantly.
+- Joining via URL + unique name; session leader controls the start.
+- DOM rendering, `requestAnimationFrame`, minimal repaints (only `transform`, no
+  changes to `top/left` that cause reflow) — for stable 60 FPS.
+- Menu: pause / resume / exit with message showing "who did it".
+- Score updates in real-time, winner shown at the end.
+- Countdown timer.
+- Keyboard controls without delays/glitches (key state map + fixed input send interval,
+  decoupled from render loop).
+- Sound effects: game start, coin collection, game end.
 
-## Бонусні ідеї для подальшого розширення команди
+## Bonus Ideas for Future Team Expansion
 
-- Power-ups (прискорення, подвійні очки) — додати в `server.js` до циклу колізій.
-- Чат — новий тип WS-повідомлення `chat`, окремий блок в UI.
-- Colorblind mode — альтернативна палітра `COLORS`, перемикач в лобі.
+- Power-ups (speed boost, double points) — add to `server.js` in collision loop.
+- Chat — new WS message type `chat`, separate UI block.
+- Colorblind mode — alternative color palette `COLORS`, toggle in lobby.
 
-## Відомі обмеження / що ще перевірити
+## Known Limitations / What to Test Further
 
-- Реальне навантажувальне тестування (Chrome Performance tool, кадри/сек, мережеві
-  затримки на реальному Wi-Fi гравців) команда має провести самостійно — середовище
-  розробки тут без доступу до мережі, тому запуск сервера й WebSocket-з'єднання
-  перевірені лише синтаксично (`node -c`), а не наживо через реального клієнта.
-- Рекомендується протестувати з 2, 3 і 4 одночасними вкладками/пристроями перед здачею.
+- Real load testing (Chrome Performance tool, FPS, network latency on actual player Wi-Fi)
+  should be done by the team — this development environment has no network access, so
+  server startup and WebSocket connections are verified only syntactically (`node -c`),
+  not live through an actual client.
+- It is recommended to test with 2, 3, and 4 simultaneous tabs/devices before submission.

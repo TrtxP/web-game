@@ -1,313 +1,89 @@
-/**
- * Arena Collector — client
- * DOM-only rendering (no canvas). Interpolates between server states
- * and drives visuals via requestAnimationFrame for a smooth 60fps feel,
- * independent of the server's network tick rate.
- */
-
+/** Arena Collector client bootstrap. */
 (() => {
+  const app = window.ArenaClient;
+  const elements = app.getElements();
+  const state = {
+    myId: null,
+    arenaSize: { w: 900, h: 600, playerSize: 28, coinSize: 16 },
+    isLead: false,
+  };
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
+  const playSfx = app.createAudioPlayer();
+  const renderer = app.createRenderer(elements, state, app.showScreen);
 
-  // ---------- DOM refs ----------
-  const joinScreen = document.getElementById('joinScreen');
-  const gameScreen = document.getElementById('gameScreen');
-  const nameInput = document.getElementById('nameInput');
-  const joinBtn = document.getElementById('joinBtn');
-  const joinError = document.getElementById('joinError');
-  const lobby = document.getElementById('lobby');
-  const lobbyList = document.getElementById('lobbyList');
-  const startBtn = document.getElementById('startBtn');
-  const lobbyHint = document.getElementById('lobbyHint');
-  const arena = document.getElementById('arena');
-  const scoreboard = document.getElementById('scoreboard');
-  const timerEl = document.getElementById('timer');
-  const toast = document.getElementById('toast');
-  const menuBtn = document.getElementById('menuBtn');
-  const menuOverlay = document.getElementById('menuOverlay');
-  const pauseBtn = document.getElementById('pauseBtn');
-  const resumeBtn = document.getElementById('resumeBtn');
-  const quitBtn = document.getElementById('quitBtn');
-  const closeMenuBtn = document.getElementById('closeMenuBtn');
-  const winnerOverlay = document.getElementById('winnerOverlay');
-  const winnerText = document.getElementById('winnerText');
-  const playAgainBtn = document.getElementById('playAgainBtn');
-
-  let myId = null;
-  let arenaSize = { w: 900, h: 600, playerSize: 28, coinSize: 16 };
-  let isLead = false;
-
-  // Rendering state: last two server snapshots for interpolation
-  let prevPlayers = new Map();
-  let curPlayers = new Map();
-  let lastServerTime = performance.now();
-  let serverIntervalEstimate = 1000 / 30;
-
-  const playerEls = new Map(); // id -> DOM element
-  const coinEls = new Map();   // id -> DOM element
-
-  // ---------- Screen View Switcher Helper ----------
-  function showScreen(screenToShow) {
-    joinScreen.classList.add('hidden');
-    lobby.classList.add('hidden');
-    gameScreen.classList.add('hidden');
-
-    if (screenToShow) {
-      screenToShow.classList.remove('hidden');
-    }
-  }
-
-  // ---------- audio (WebAudio, no external files) ----------
-  const actx = new (window.AudioContext || window.webkitAudioContext)();
-  function beep(freq, dur, type = 'sine', vol = 0.15) {
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.value = vol;
-    osc.connect(gain).connect(actx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
-    osc.stop(actx.currentTime + dur);
-  }
-  function playSfx(name) {
-    if (actx.state === 'suspended') actx.resume();
-    if (name === 'collect') beep(880, 0.12, 'triangle', 0.12);
-    else if (name === 'start') beep(440, 0.25, 'sawtooth', 0.15);
-    else if (name === 'end') beep(220, 0.4, 'square', 0.15);
-    else if (name === 'loss') {
-      const osc = actx.createOscillator();
-      const gain = actx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(160, actx.currentTime);
-      osc.frequency.linearRampToValueAtTime(50, actx.currentTime + 0.35);
-      gain.gain.setValueAtTime(0.2, actx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.35);
-      osc.connect(gain).connect(actx.destination);
-      osc.start();
-      osc.stop(actx.currentTime + 0.35);
-    }
-  }
-
-  // ---------- toast messages ----------
   let toastTimer = null;
   function showToast(text) {
-    toast.textContent = text;
-    toast.classList.add('show');
+    elements.toast.textContent = text;
+    elements.toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+    toastTimer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
   }
 
-  // ---------- join flow ----------
-  joinBtn.addEventListener('click', doJoin);
-  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
   function doJoin() {
-    const name = nameInput.value.trim();
-    if (!name) { joinError.textContent = "Введіть ім'я."; return; }
+    const name = elements.nameInput.value.trim();
+    if (!name) {
+      elements.joinError.textContent = "Введіть ім'я.";
+      return;
+    }
     ws.send(JSON.stringify({ type: 'join', name }));
   }
-  startBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'start' })));
 
-  // ---------- menu ----------
-  menuBtn.addEventListener('click', () => menuOverlay.classList.remove('hidden'));
-  closeMenuBtn.addEventListener('click', () => menuOverlay.classList.add('hidden'));
-  pauseBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'pause' })));
-  resumeBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'resume' })));
-  quitBtn.addEventListener('click', () => {
+  elements.joinBtn.addEventListener('click', doJoin);
+  elements.nameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') doJoin();
+  });
+  elements.startBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'start' })));
+
+  elements.menuBtn.addEventListener('click', () => elements.menuOverlay.classList.remove('hidden'));
+  elements.closeMenuBtn.addEventListener('click', () => elements.menuOverlay.classList.add('hidden'));
+  elements.pauseBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'pause' })));
+  elements.resumeBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'resume' })));
+  elements.quitBtn.addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'menuAction', action: 'quit' }));
-    menuOverlay.classList.add('hidden');
+    elements.menuOverlay.classList.add('hidden');
   });
-  playAgainBtn.addEventListener('click', () => {
+  elements.playAgainBtn.addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'playAgain' }));
-    winnerOverlay.classList.add('hidden');
+    elements.winnerOverlay.classList.add('hidden');
   });
 
-  // ---------- keyboard input ----------
-  const pressedKeys = {};
-
-  window.addEventListener('keydown', (e) => {
-    // Guard clause: Allow normal typing if focused on an input field
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-      return;
-    }
-
-    const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'];
-  
-    if (movementKeys.includes(e.key) || movementKeys.includes(e.code)) {
-      e.preventDefault(); // Prevent page scrolling during gameplay
-      pressedKeys[e.code] = true;
-      sendInputToServer();
-    }
-  });
-
-  window.addEventListener('keyup', (e) => {
-    // Guard clause: Allow normal typing if focused on an input field
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-      return;
-    }
-
-    const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'];
-
-    if (movementKeys.includes(e.key) || movementKeys.includes(e.code)) {
-      pressedKeys[e.code] = false;
-      sendInputToServer();
-    }
-  });
-
+  const pressedKeys = app.attachKeyboardInput(sendInputToServer);
   function sendInputToServer() {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    const up = !!(pressedKeys['KeyW'] || pressedKeys['ArrowUp']);
-    const down = !!(pressedKeys['KeyS'] || pressedKeys['ArrowDown']);
-    const left = !!(pressedKeys['KeyA'] || pressedKeys['ArrowLeft']);
-    const right = !!(pressedKeys['KeyD'] || pressedKeys['ArrowRight']);
-
-    ws.send(JSON.stringify({
-      type: 'input',
-      up, down, left, right
-    }));
+    const up = !!(pressedKeys.KeyW || pressedKeys.ArrowUp);
+    const down = !!(pressedKeys.KeyS || pressedKeys.ArrowDown);
+    const left = !!(pressedKeys.KeyA || pressedKeys.ArrowLeft);
+    const right = !!(pressedKeys.KeyD || pressedKeys.ArrowRight);
+    ws.send(JSON.stringify({ type: 'input', up, down, left, right }));
   }
 
-  // Send input periodically during active gameplay
   setInterval(() => {
-    if (gameScreen.classList.contains('hidden')) return;
+    if (elements.gameScreen.classList.contains('hidden')) return;
     sendInputToServer();
   }, 1000 / 30);
 
-  // ---------- websocket message handling ----------
-  ws.addEventListener('message', (evt) => {
-    const msg = JSON.parse(evt.data);
-    switch (msg.type) {
+  ws.addEventListener('message', (event) => {
+    const message = JSON.parse(event.data);
+    switch (message.type) {
       case 'joined':
-        myId = msg.you;
-        arenaSize = msg.arena;
-        joinError.textContent = '';
-        showScreen(lobby);
+        state.myId = message.you;
+        state.arenaSize = message.arena;
+        elements.joinError.textContent = '';
+        app.showScreen(elements, elements.lobby);
         showToast('Приєднано до лобі!');
         break;
       case 'joinError':
-        joinError.textContent = msg.reason;
+        elements.joinError.textContent = message.reason;
         break;
       case 'message':
-        showToast(msg.text);
+        showToast(message.text);
         break;
       case 'sfx':
-        playSfx(msg.sound);
+        playSfx(message.sound);
         break;
       case 'state':
-        onState(msg);
+        renderer.onState(message);
         break;
     }
   });
-
-  function onState(msg) {
-    // ---------- Lobby State handling ----------
-    if (msg.status === 'lobby') {
-      if (myId) {
-        showScreen(lobby);
-      } else {
-        showScreen(joinScreen);
-      }
-      winnerOverlay.classList.add('hidden');
-
-      lobbyList.innerHTML = '';
-      msg.players.forEach(p => {
-        const li = document.createElement('li');
-        li.textContent = `${p.name}${p.isLead ? ' 👑 (лідер)' : ''}`;
-        lobbyList.appendChild(li);
-      });
-      const me = msg.players.find(p => p.id === myId);
-      isLead = !!(me && me.isLead);
-      startBtn.classList.toggle('hidden', !isLead);
-      lobbyHint.textContent = isLead
-        ? (msg.players.length >= 2 ? 'Ви можете почати гру.' : 'Потрібно мінімум 2 гравці.')
-        : 'Очікуємо, поки лідер розпочне гру...';
-      return;
-    }
-
-    // ---------- In-Game / Ended State handling ----------
-    showScreen(gameScreen);
-
-    if (msg.status === 'ended') {
-      const sorted = [...msg.players].sort((a, b) => b.score - a.score);
-      winnerText.textContent = sorted.length
-        ? `🏆 ${sorted[0].name} переміг з рахунком ${sorted[0].score}!`
-        : 'Гру завершено.';
-      winnerOverlay.classList.remove('hidden');
-    } else {
-      winnerOverlay.classList.add('hidden');
-    }
-
-    timerEl.textContent = msg.timeLeft;
-    renderScoreboard(msg.players);
-    renderCoins(msg.coins);
-
-    // Shift interpolation buffers
-    prevPlayers = curPlayers;
-    curPlayers = new Map(msg.players.map(p => [p.id, p]));
-    const now = performance.now();
-    serverIntervalEstimate = now - lastServerTime || serverIntervalEstimate;
-    lastServerTime = now;
-  }
-
-  function renderScoreboard(players) {
-    scoreboard.innerHTML = '';
-    players.forEach(p => {
-      const chip = document.createElement('div');
-      chip.className = 'score-chip';
-      chip.innerHTML = `<span class="dot" style="background:${p.color}"></span>${p.name}: ${p.score}`;
-      scoreboard.appendChild(chip);
-    });
-  }
-
-  function renderCoins(coins) {
-    const seen = new Set();
-    coins.forEach(c => {
-      seen.add(c.id);
-      let el = coinEls.get(c.id);
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'coin';
-        arena.appendChild(el);
-        coinEls.set(c.id, el);
-      }
-      el.style.transform = `translate(${c.x - arenaSize.coinSize / 2}px, ${c.y - arenaSize.coinSize / 2}px)`;
-    });
-    for (const [id, el] of coinEls) {
-      if (!seen.has(id)) { el.remove(); coinEls.delete(id); }
-    }
-  }
-
-  function ensurePlayerEl(p) {
-    let el = playerEls.get(p.id);
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'player';
-      el.style.background = p.color;
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = p.name;
-      el.appendChild(label);
-      arena.appendChild(el);
-      playerEls.set(p.id, el);
-    }
-    return el;
-  }
-
-  // ---------- requestAnimationFrame render loop with interpolation ----------
-  function frame() {
-    const t = Math.min(1, (performance.now() - lastServerTime) / serverIntervalEstimate);
-    for (const [id, cur] of curPlayers) {
-      const prev = prevPlayers.get(id) || cur;
-      const x = prev.x + (cur.x - prev.x) * t;
-      const y = prev.y + (cur.y - prev.y) * t;
-      const el = ensurePlayerEl(cur);
-      el.style.transform = `translate(${x}px, ${y}px)`;
-    }
-    // Remove players who left
-    for (const [id, el] of playerEls) {
-      if (!curPlayers.has(id)) { el.remove(); playerEls.delete(id); }
-    }
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
 })();
