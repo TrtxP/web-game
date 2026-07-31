@@ -9,6 +9,8 @@ const {
   COLORS,
 } = require('./config');
 
+const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
+
 function createGameRoom() {
   const room = {
     players: new Map(),
@@ -23,38 +25,33 @@ function createGameRoom() {
     shrinkInterval: null,
   };
 
-  room.coins = freshCoins();
+  const randPos = (max, margin = 40) => margin + Math.random() * (max - margin * 2);
+
+  const createCoin = (type = 'standard', value = 10, x, y) => ({
+    id: uid(type === 'star' ? 'star' : 'c'),
+    type,
+    value,
+    x: x ?? randPos(room.arenaW),
+    y: y ?? randPos(room.arenaH),
+  });
 
   function freshCoins() {
-    const coins = [];
-    for (let i = 0; i < COIN_COUNT; i++) {
-      coins.push({
-        id: 'c' + i + '_' + Math.random().toString(36).slice(2, 6),
-        type: 'standard',
-        value: 10,
-        x: 40 + Math.random() * (room.arenaW - 80),
-        y: 40 + Math.random() * (room.arenaH - 80),
-      });
-    }
-    return coins;
+    return Array.from({ length: COIN_COUNT }, () => createCoin());
   }
 
+  room.coins = freshCoins();
+
   function stopTimers() {
-    if (room.starWarningTimer) clearTimeout(room.starWarningTimer);
-    if (room.starSpawnTimer) clearTimeout(room.starSpawnTimer);
-    if (room.shrinkInterval) clearInterval(room.shrinkInterval);
-    room.starWarningTimer = null;
-    room.starSpawnTimer = null;
-    room.shrinkInterval = null;
+    clearTimeout(room.starWarningTimer);
+    clearTimeout(room.starSpawnTimer);
+    clearInterval(room.shrinkInterval);
+    room.starWarningTimer = room.starSpawnTimer = room.shrinkInterval = null;
   }
 
   function startTimers() {
     stopTimers();
-
     room.shrinkInterval = setInterval(() => {
-      if (room.status === 'playing') {
-        shrinkArena();
-      }
+      if (room.status === 'playing') shrinkArena();
     }, 20000);
 
     scheduleStarCoin();
@@ -74,13 +71,7 @@ function createGameRoom() {
 
     const standardCoins = room.coins.filter((c) => c.type === 'standard' || !c.type);
     while (standardCoins.length < COIN_COUNT) {
-      const newCoin = {
-        id: 'c' + Math.random().toString(36).slice(2, 8),
-        type: 'standard',
-        value: 10,
-        x: margin + Math.random() * (room.arenaW - margin * 2),
-        y: margin + Math.random() * (room.arenaH - margin * 2),
-      };
+      const newCoin = createCoin('standard', 10, randPos(room.arenaW, margin), randPos(room.arenaH, margin));
       room.coins.push(newCoin);
       standardCoins.push(newCoin);
     }
@@ -94,22 +85,16 @@ function createGameRoom() {
     room.starWarningTimer = setTimeout(() => {
       if (room.status !== 'playing') return;
 
-      const x = 40 + Math.random() * (room.arenaW - 80);
-      const y = 40 + Math.random() * (room.arenaH - 80);
-      const warnId = 'warn_' + Math.random().toString(36).slice(2, 6);
+      const x = randPos(room.arenaW);
+      const y = randPos(room.arenaH);
+      const warnId = uid('warn');
 
       broadcast({ type: 'starWarning', id: warnId, x, y, duration: 3000 });
       broadcast({ type: 'sfx', sound: 'star_warning' });
 
       room.starSpawnTimer = setTimeout(() => {
         if (room.status === 'playing') {
-          room.coins.push({
-            id: 'star_' + Math.random().toString(36).slice(2, 6),
-            type: 'star',
-            value: 50,
-            x,
-            y,
-          });
+          room.coins.push(createCoin('star', 50, x, y));
         }
         scheduleStarCoin();
       }, 3000);
@@ -125,19 +110,13 @@ function createGameRoom() {
         const p1 = players[i];
         const p2 = players[j];
 
-        const dx = p1.x - p2.x;
-        const dy = p1.y - p2.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist < PLAYER_SIZE) {
+        if (Math.hypot(p1.x - p2.x, p1.y - p2.y) < PLAYER_SIZE) {
           const p1Immune = now < (p1.immuneUntil || 0);
           const p2Immune = now < (p2.immuneUntil || 0);
 
           let attacker = null;
           let victim = null;
 
-          // Lower score steals from higher score (catch-up mechanic).
-          // A player can ONLY be victim if they are NOT currently immune.
           if (p1.score > p2.score && !p1Immune) {
             attacker = p2;
             victim = p1;
@@ -151,9 +130,12 @@ function createGameRoom() {
             if (stolen > 0) {
               victim.score -= stolen;
               attacker.score += stolen;
-              victim.immuneUntil = now + 2000; // Grants 2 seconds of steal immunity
 
-              if (victim.ws && victim.ws.readyState === WebSocket.OPEN) {
+              // Both players receive 2s immunity to prevent instant counter-steals
+              victim.immuneUntil = now + 2000;
+              attacker.immuneUntil = now + 2000;
+
+              if (victim.ws?.readyState === WebSocket.OPEN) {
                 victim.ws.send(JSON.stringify({ type: 'stolenFrom', amount: stolen }));
               }
               broadcast({ type: 'sfx', sound: 'steal' });
@@ -173,15 +155,15 @@ function createGameRoom() {
 
   function publicPlayers() {
     const now = Date.now();
-    return [...room.players.values()].map((player) => ({
-      id: player.id,
-      name: player.name,
-      color: player.color,
-      x: player.x,
-      y: player.y,
-      score: player.score,
-      isLead: player.isLead,
-      isImmune: now < (player.immuneUntil || 0),
+    return [...room.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      x: p.x,
+      y: p.y,
+      score: p.score,
+      isLead: p.isLead,
+      isImmune: now < (p.immuneUntil || 0),
     }));
   }
 
@@ -211,8 +193,8 @@ function createGameRoom() {
 
     for (const player of room.players.values()) {
       player.score = 0;
-      player.x = 60 + Math.random() * (ARENA_W - 120);
-      player.y = 60 + Math.random() * (ARENA_H - 120);
+      player.x = randPos(ARENA_W, 60);
+      player.y = randPos(ARENA_H, 60);
       player.immuneUntil = 0;
     }
   }
@@ -227,23 +209,23 @@ function createGameRoom() {
 
   function computeWinnerText() {
     const players = [...room.players.values()].sort((a, b) => b.score - a.score);
-    if (players.length === 0) return 'Гру завершено.';
+    if (!players.length) return 'Гру завершено.';
 
     const top = players[0];
-    const tied = players.filter((player) => player.score === top.score);
-    if (tied.length > 1) return `Нічия між: ${tied.map((player) => player.name).join(', ')}!`;
+    const tied = players.filter((p) => p.score === top.score);
+    if (tied.length > 1) return `Нічия між: ${tied.map((p) => p.name).join(', ')}!`;
     return `${top.name} переміг з рахунком ${top.score}!`;
   }
 
   function createPlayer(ws, name) {
     const isFirst = room.players.size === 0;
     const player = {
-      id: 'p_' + Math.random().toString(36).slice(2, 9),
+      id: uid('p'),
       ws,
       name,
       color: COLORS[room.players.size % COLORS.length],
-      x: 60 + Math.random() * (ARENA_W - 120),
-      y: 60 + Math.random() * (ARENA_H - 120),
+      x: randPos(ARENA_W, 60),
+      y: randPos(ARENA_H, 60),
       score: 0,
       input: { x: 0, y: 0 },
       isLead: isFirst,
