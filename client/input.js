@@ -13,6 +13,7 @@
 
     window.addEventListener('keydown', (event) => {
       if (isTypingInInput()) return;
+      if (pressedKeys[event.code]) return;
       if (movementKeys.includes(event.key) || movementKeys.includes(event.code)) {
         event.preventDefault();
         pressedKeys[event.code] = true;

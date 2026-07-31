@@ -28,45 +28,32 @@ function createMessageHandler(gameRoom) {
         break;
       }
 
-      case 'start':
-      case 'startGame': {
+      case 'start': {
         const player = room.players.get(ws);
         if (!player || !player.isLead || room.status !== 'lobby') return;
         if (room.players.size < 2) {
           return send(ws, { type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' });
         }
-
-        if (typeof startGame === 'function') {
-          startGame();
-        } else {
-          resetGame();
-          room.status = 'playing';
-          sendState();
-        }
+        resetGame();
+        room.status = 'playing';
+        broadcast({ type: 'sfx', sound: 'start' });
         broadcast({ type: 'message', text: `${player.name} розпочав(ла) гру!` });
+        sendState();
         break;
       }
 
       case 'input': {
         const player = room.players.get(ws);
         if (!player || room.status !== 'playing') return;
-        if (typeof msg.up !== 'undefined') {
-          player.input.x = (msg.right ? 1 : 0) - (msg.left ? 1 : 0);
-          player.input.y = (msg.down ? 1 : 0) - (msg.up ? 1 : 0);
-        } else {
-          player.input.x = Math.max(-1, Math.min(1, msg.x || 0));
-          player.input.y = Math.max(-1, Math.min(1, msg.y || 0));
-        }
+        player.input.x = (msg.right ? 1 : 0) - (msg.left ? 1 : 0);
+        player.input.y = (msg.down ? 1 : 0) - (msg.up ? 1 : 0);
         break;
       }
 
-      case 'menuAction':
-      case 'pauseGame':
-      case 'resumeGame':
-      case 'quitGame': {
+      case 'menuAction': {
         const player = room.players.get(ws);
         if (!player) return;
-        const action = msg.action || msg.type.replace('Game', '');
+        const action = msg.action;
 
         if (action === 'pause' && room.status === 'playing') {
           room.status = 'paused';
@@ -74,12 +61,7 @@ function createMessageHandler(gameRoom) {
         } else if (action === 'resume' && room.status === 'paused') {
           room.status = 'playing';
           broadcast({ type: 'message', text: `${player.name} відновив(ла) гру.` });
-        } else if (action === 'lobby' || action === 'quit' || action === 'reset') {
-          // Resets game state and sends EVERYONE in room back to lobby screen
-          resetGame();
-          broadcast({ type: 'message', text: `${player.name} повернув(ла) усіх в лобі.` });
-        } else if (action === 'leave' || action === 'leaveRoom') {
-          // Fully disconnects player from room session
+        } else if (action === 'quit') {
           handleQuit(ws);
           return;
         }
@@ -90,8 +72,7 @@ function createMessageHandler(gameRoom) {
       case 'playAgain': {
         const player = room.players.get(ws);
         if (!player || !player.isLead) return;
-
-        resetGame();
+        room.status = 'lobby';
         sendState();
         break;
       }
