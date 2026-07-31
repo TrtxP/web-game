@@ -95,6 +95,7 @@ function createGameRoom() {
       room.starSpawnTimer = setTimeout(() => {
         if (room.status === 'playing') {
           room.coins.push(createCoin('star', 50, x, y));
+          broadcast({ type: 'sfx', sound: 'star_spawn' });
         }
         scheduleStarCoin();
       }, 3000);
@@ -111,6 +112,12 @@ function createGameRoom() {
         const p2 = players[j];
 
         if (Math.hypot(p1.x - p2.x, p1.y - p2.y) < PLAYER_SIZE) {
+          if (now - (p1.lastHitFx || 0) > 600 && now - (p2.lastHitFx || 0) > 600) {
+            p1.lastHitFx = now;
+            p2.lastHitFx = now;
+            broadcast({ type: 'sfx', sound: 'hit' });
+          }
+
           const p1Immune = now < (p1.immuneUntil || 0);
           const p2Immune = now < (p2.immuneUntil || 0);
 

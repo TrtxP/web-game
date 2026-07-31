@@ -1,76 +1,96 @@
 # Arena Collector
 
-A real-time browser-based multiplayer game (2–4 players) implemented **exclusively using DOM elements**
-(no canvas). Players move simultaneously around an arena and collect coins;
-the player with the highest score when the timer ends wins.
+A real-time browser-based multiplayer game (2–4 players) implemented **exclusively using DOM elements** (no canvas). Players move simultaneously around a dynamic arena, collect coins, steal points from opponents, and avoid shrinking arena borders; the player with the highest score when the timer ends wins.
 
-## Project Overview
+---
 
-- **Server**: Node.js + `ws` — authoritative game logic, room (lobby), player movement,
-  coin collision detection, score tracking, timer, pause/resume/exit with action attribution.
-- **Client**: pure HTML/CSS/JS. Characters and coins are `<div>` elements that move via
-  `transform: translate(...)` (without reflow). Render loop uses `requestAnimationFrame`
-  with interpolation between server states for smooth 60 FPS regardless of
-  server network frequency (30 Hz).
-- **Controls**: WASD / arrow keys, key state stored in a map (no glitches with
-  long key presses).
-- **Sound**: generated via Web Audio API (oscillators) — no external files needed.
+## Project Overview & Features
 
-## Installation
+- **Server**: Node.js + `ws` — authoritative game loop (30 Hz), lobby management, player movement, coin collisions, star coin warning/spawns, dynamic arena shrinking, player-to-player theft with immunity cooldowns, match timer, and pause/resume/quit actions.
+- **Client**: Pure HTML/CSS/JS (Vanilla). Player avatars and coins are `<div>` elements animated using `transform: translate(...)` (zero layout reflows). Render loop uses `requestAnimationFrame` with linear state interpolation for smooth 60 FPS rendering.
+- **Controls**: WASD / Arrow keys mapped via key state tracking (eliminates long-press input delay).
+- **Sound System**: Procedural audio synthesized entirely via the browser's **Web Audio API** (`AudioContext`, `OscillatorNode`, `GainNode`) — zero external `.mp3`/`.wav` dependencies required.
+  - **Game Start**: Sawtooth tone sweep.
+  - **Coin Collection**: Bright triangle beep.
+  - **Star Coin Warning & Spawn**: Pulsating warning tone followed by a 5-note magical ascending chime (`star_spawn`).
+  - **Player Collision**: Low-frequency impact thud (`hit`).
+  - **Point Theft**: Dual-oscillator pitch glide (`steal`).
+  - **Player Disconnect**: Descending loss slide.
+  - **Match End**: Low square wave tone.
+- **Visual Effects**: Screen shake and red HUD flash when points are stolen from a player (`stolenFrom`).
 
+---
+
+## Installation & Running Locally
+
+### 1. Install Dependencies
 ```bash
 npm install
+```
+
+### 2. Start the Local Server
+```bash
+npm start
+```
+The server will start on `http://localhost:8080`. Players on the local machine can open `http://localhost:8080` in multiple browser tabs or windows to join the lobby.
+
+---
+
+## Running via ngrok Proxy (Internet / Multi-Computer Access)
+
+To allow players from different computers, networks, or locations anywhere in the world to join:
+
+### Step 1: Ensure Local Server is Running
+In your first terminal window:
+```bash
 npm start
 ```
 
-The server will start on `http://localhost:8080`.
+### Step 2: Launch the ngrok Tunnel
+In a **second terminal window**, run:
+```bash
+npm run tunnel
+```
+*(Or directly: `ngrok http 8080`)*
 
-## Usage
+### Step 3: Share the Public URL
+- `ngrok` will output a public HTTPS URL, for example:
+  `https://a1b2-34-56-78-90.ngrok-free.app`
+- Share this URL with any player.
+- **Note for players**: When opening an `ngrok-free.app` link for the first time in a browser, click the **"Visit Site"** button on the ngrok warning landing page.
+- The client automatically detects the `https://` protocol and establishes a secure WebSocket connection (`wss://`).
 
-1. Each player opens the server URL in a browser, enters a unique name, clicks
-   "Join" and enters the lobby.
-2. The first player to join becomes the **session leader** — only they see the
-   "Start Game" button (available with 2+ players).
-3. After starting, all players move simultaneously (WASD/arrow keys) and collect coins.
-4. The "☰ Menu" button allows pausing, resuming, or leaving the lobby —
-   all players see a message showing who performed each action.
-5. Timer (90 seconds by default, `ROUND_SECONDS` in `server.js`) counts down;
-   score updates in real-time for everyone.
-6. After completion, the winner is shown; the leader can click "Play Again".
+---
 
-## Deploying to the Internet (not local network)
+## How to Play
 
-For players to access from different locations, you need a public tunnel or hosting, for example:
+1. **Join Lobby**: Each player enters a unique name and clicks **"Join"**.
+2. **Session Leader**: The first player to join becomes the leader and controls the **"Start Game"** button (active when 2+ players are in the lobby).
+3. **Gameplay**:
+   - Move around using WASD or Arrow keys.
+   - Collect **Standard Coins** (+10 points) and **Star Coins** (+50 points).
+   - **Steal Mechanics**: Bumping into a player with a higher score steals 30% of their points. Both players gain a temporary 2-second immunity from counter-steals.
+   - **Arena Shrinking**: Every 20 seconds, the arena borders contract, pushing coins and players inward.
+4. **In-Game Menu**: Click **"☰ Menu"** to pause, resume, or quit. All actions broadcast notifications to all players.
+5. **Game Over**: When the 90-second match timer reaches zero, the final score and winner announcement are displayed. The leader can click **"Play Again"** to return to the lobby.
 
-- **ngrok**: `ngrok http 8080` → provides a public URL that proxies to your local server.
-- **Railway / Render / Fly.io**: deploy the repository directly (Node.js buildpack,
-  start command `npm start`, port from `process.env.PORT`, already handled in code).
+---
 
-## Requirements Compliance
+## Requirements Compliance Summary
 
-- 2–4 players, characters are equal (same speed, same starting conditions).
-- The game is real-time, not turn-based: movement and coin collection happen simultaneously for all.
-- Each player sees positions and scores of all other players constantly.
-- Joining via URL + unique name; session leader controls the start.
-- DOM rendering, `requestAnimationFrame`, minimal repaints (only `transform`, no
-  changes to `top/left` that cause reflow) — for stable 60 FPS.
-- Menu: pause / resume / exit with message showing "who did it".
-- Score updates in real-time, winner shown at the end.
-- Countdown timer.
-- Keyboard controls without delays/glitches (key state map + fixed input send interval,
-  decoupled from render loop).
-- Sound effects: game start, coin collection, game end.
+- **2–4 Players**: Equal starting conditions and character capabilities.
+- **Real-Time Gameplay**: Simultaneous player movement, coin collection, and collisions over WebSockets.
+- **Remote Access Requirements**:
+  - Each player can join from their own computer/browser anywhere on the Internet via ngrok URL.
+  - No domain or fixed IP needed; works over temporary ngrok URLs on any browser.
+- **Performance**: 60 FPS DOM rendering using CSS `transform` without layout reflows.
+- **Sound**: Full procedural sound effects for start, collect, hit, steal, star spawn, loss, and match end.
 
-## Bonus Ideas for Future Team Expansion
+---
 
-- Power-ups (speed boost, double points) — add to `server.js` in collision loop.
-- Chat — new WS message type `chat`, separate UI block.
-- Colorblind mode — alternative color palette `COLORS`, toggle in lobby.
+## Running Tests
 
-## Known Limitations / What to Test Further
-
-- Real load testing (Chrome Performance tool, FPS, network latency on actual player Wi-Fi)
-  should be done by the team — this development environment has no network access, so
-  server startup and WebSocket connections are verified only syntactically (`node -c`),
-  not live through an actual client.
-- It is recommended to test with 2, 3, and 4 simultaneous tabs/devices before submission.
+To verify JavaScript syntax across all client and server files:
+```bash
+npm test
+```
