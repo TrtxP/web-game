@@ -156,7 +156,10 @@ function createGameRoom() {
   function broadcast(msg) {
     const data = JSON.stringify(msg);
     for (const ws of room.players.keys()) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+      if (ws.readyState === WebSocket.OPEN) {
+        if (msg.type === 'state' && ws.bufferedAmount > 0) continue;
+        ws.send(data);
+      }
     }
   }
 

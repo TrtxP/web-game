@@ -8,7 +8,7 @@ const { startGameLoop } = require('./server/game-loop');
 const { createMessageHandler } = require('./server/message-handler');
 
 const server = http.createServer(serveStaticFiles(__dirname));
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, perMessageDeflate: false });
 const gameRoom = createGameRoom();
 const handleMessage = createMessageHandler(gameRoom);
 

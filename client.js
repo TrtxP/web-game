@@ -71,6 +71,7 @@
     elements.winnerOverlay.classList.add('hidden');
   });
 
+  let lastInputKey = null;
   const pressedKeys = app.attachKeyboardInput(sendInputToServer);
   function sendInputToServer() {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -78,7 +79,11 @@
     const down = !!(pressedKeys.KeyS || pressedKeys.ArrowDown);
     const left = !!(pressedKeys.KeyA || pressedKeys.ArrowLeft);
     const right = !!(pressedKeys.KeyD || pressedKeys.ArrowRight);
-    ws.send(JSON.stringify({ type: 'input', up, down, left, right }));
+    const inputKey = `${up ? 1 : 0}${down ? 1 : 0}${left ? 1 : 0}${right ? 1 : 0}`;
+    if (inputKey !== lastInputKey) {
+      lastInputKey = inputKey;
+      ws.send(JSON.stringify({ type: 'input', up, down, left, right }));
+    }
   }
 
   setInterval(() => {

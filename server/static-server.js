@@ -7,6 +7,8 @@ const MIME = {
   '.css': 'text/css',
 };
 
+const cache = new Map();
+
 function serveStaticFiles(rootDirectory) {
   return (req, res) => {
     const requestPath = decodeURIComponent((req.url || '/').split('?')[0]);
@@ -19,13 +21,22 @@ function serveStaticFiles(rootDirectory) {
       return;
     }
 
+    if (cache.has(filePath)) {
+      const cached = cache.get(filePath);
+      res.writeHead(200, { 'Content-Type': cached.type });
+      res.end(cached.data);
+      return;
+    }
+
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(404);
         res.end('Not found');
         return;
       }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream' });
+      const type = MIME[path.extname(filePath)] || 'application/octet-stream';
+      cache.set(filePath, { type, data });
+      res.writeHead(200, { 'Content-Type': type });
       res.end(data);
     });
   };

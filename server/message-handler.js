@@ -69,8 +69,13 @@ function createMessageHandler(gameRoom) {
       case 'playAgain': {
         const player = room.players.get(ws);
         if (!player || !player.isLead) return;
-        room.status = 'lobby';
-        sendState();
+        if (room.players.size < 2) {
+          room.status = 'lobby';
+          sendState();
+          return send(ws, { type: 'message', text: 'Потрібно мінімум 2 гравці для нової гри.' });
+        }
+        startGame();
+        broadcast({ type: 'message', text: `${player.name} розпочав(ла) нову гру!` });
         break;
       }
     }
