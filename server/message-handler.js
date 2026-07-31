@@ -34,11 +34,8 @@ function createMessageHandler(gameRoom) {
         if (room.players.size < 2) {
           return send(ws, { type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' });
         }
-        resetGame();
-        room.status = 'playing';
-        broadcast({ type: 'sfx', sound: 'start' });
+        startGame();
         broadcast({ type: 'message', text: `${player.name} розпочав(ла) гру!` });
-        sendState();
         break;
       }
 

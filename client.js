@@ -57,6 +57,11 @@
   elements.closeMenuBtn.addEventListener('click', () => elements.menuOverlay.classList.add('hidden'));
   elements.pauseBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'pause' })));
   elements.resumeBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'menuAction', action: 'resume' })));
+  elements.colorblindBtn?.addEventListener('click', () => {
+    document.body.classList.toggle('colorblind-mode');
+    const isActive = document.body.classList.contains('colorblind-mode');
+    showToast(isActive ? '👁️ Режим для дальтоніків увімкнено' : '👁️ Режим для дальтоніків вимкнено');
+  });
   elements.quitBtn.addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'menuAction', action: 'quit' }));
     elements.menuOverlay.classList.add('hidden');
@@ -106,6 +111,7 @@
       case 'sfx':
         playSfx(message.sound);
         break;
+      case 'left':
       case 'state':
         renderer.onState(message);
         break;
