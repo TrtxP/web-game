@@ -19,6 +19,7 @@
       pauseBtn: document.getElementById('pauseBtn'),
       resumeBtn: document.getElementById('resumeBtn'),
       quitBtn: document.getElementById('quitBtn'),
+      colorblindBtn: document.getElementById('colorblindBtn'),
       closeMenuBtn: document.getElementById('closeMenuBtn'),
       winnerOverlay: document.getElementById('winnerOverlay'),
       winnerText: document.getElementById('winnerText'),
