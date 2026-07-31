@@ -29,6 +29,7 @@
           elements.arena.appendChild(element);
           coinElements.set(coin.id, element);
         }
+        element.className = `coin ${coin.type || 'standard'}`;
         const coinSize = coin.type === 'star' ? 24 : ((state.arenaSize && state.arenaSize.coinSize) || 16);
         element.style.transform = `translate(${coin.x - coinSize / 2}px, ${coin.y - coinSize / 2}px)`;
       });
