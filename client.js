@@ -19,6 +19,25 @@
     toastTimer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
   }
 
+  // Theft damage feedback (Screen Shake & Red HUD Flash)
+  function triggerDamageFx(amount) {
+    elements.gameScreen.classList.add('shake', 'damage-flash');
+    showToast(`💔 У вас викрадено ${amount} балів!`);
+    setTimeout(() => elements.gameScreen.classList.remove('shake', 'damage-flash'), 400);
+  }
+
+  // Render 3-second Star Coin Spawn Warning Ring
+  function renderStarWarning({ x, y, duration }) {
+    const warnEl = document.createElement('div');
+    warnEl.className = 'star-warning';
+    warnEl.style.transform = `translate(${x - 20}px, ${y - 20}px)`;
+    elements.arena.appendChild(warnEl);
+
+    setTimeout(() => {
+      warnEl.remove();
+    }, duration);
+  }
+
   function doJoin() {
     const name = elements.nameInput.value.trim();
     if (!name) {
@@ -74,6 +93,12 @@
         break;
       case 'joinError':
         elements.joinError.textContent = message.reason;
+        break;
+      case 'starWarning':
+        renderStarWarning(message);
+        break;
+      case 'stolenFrom':
+        triggerDamageFx(message.amount);
         break;
       case 'message':
         showToast(message.text);

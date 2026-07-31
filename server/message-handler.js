@@ -5,7 +5,7 @@ function send(ws, message) {
 }
 
 function createMessageHandler(gameRoom) {
-  const { room, broadcast, createPlayer, handleQuit, resetGame, sendState } = gameRoom;
+  const { room, broadcast, createPlayer, handleQuit, resetGame, startGame, sendState } = gameRoom;
 
   return function handleMessage(ws, msg) {
     switch (msg.type) {
@@ -21,7 +21,7 @@ function createMessageHandler(gameRoom) {
         send(ws, {
           type: 'joined',
           you: player.id,
-          arena: { w: ARENA_W, h: ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE },
+          arena: { w: room.arenaW || ARENA_W, h: room.arenaH || ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE },
         });
         broadcast({ type: 'message', text: `${player.name} приєднався(лась) до лобі.` });
         sendState();
@@ -35,11 +35,15 @@ function createMessageHandler(gameRoom) {
         if (room.players.size < 2) {
           return send(ws, { type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' });
         }
-        resetGame();
-        room.status = 'playing';
-        broadcast({ type: 'sfx', sound: 'start' });
+
+        if (typeof startGame === 'function') {
+          startGame();
+        } else {
+          resetGame();
+          room.status = 'playing';
+          sendState();
+        }
         broadcast({ type: 'message', text: `${player.name} розпочав(ла) гру!` });
-        sendState();
         break;
       }
 
@@ -70,7 +74,12 @@ function createMessageHandler(gameRoom) {
         } else if (action === 'resume' && room.status === 'paused') {
           room.status = 'playing';
           broadcast({ type: 'message', text: `${player.name} відновив(ла) гру.` });
-        } else if (action === 'quit') {
+        } else if (action === 'lobby' || action === 'quit' || action === 'reset') {
+          // Resets game state and sends EVERYONE in room back to lobby screen
+          resetGame();
+          broadcast({ type: 'message', text: `${player.name} повернув(ла) усіх в лобі.` });
+        } else if (action === 'leave' || action === 'leaveRoom') {
+          // Fully disconnects player from room session
           handleQuit(ws);
           return;
         }
@@ -81,7 +90,8 @@ function createMessageHandler(gameRoom) {
       case 'playAgain': {
         const player = room.players.get(ws);
         if (!player || !player.isLead) return;
-        room.status = 'lobby';
+
+        resetGame();
         sendState();
         break;
       }
