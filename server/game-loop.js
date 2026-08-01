@@ -70,7 +70,7 @@ function startGameLoop(gameRoom) {
 
         if (Math.hypot(dx, dy) < collectRadius) {
           player.score += coin.value || 10;
-          broadcast({ type: 'sfx', sound: 'collect' });
+          room.pendingSfx.push('collect');
           return false;
         }
       }
@@ -90,7 +90,7 @@ function startGameLoop(gameRoom) {
 
           if (Math.hypot(dx, dy) < PLAYER_SIZE / 2 + POWERUP_SIZE / 2) {
             collectPowerup(player, pu);
-            broadcast({ type: 'sfx', sound: 'powerup_collect' });
+            room.pendingSfx.push('powerup_collect');
             return false;
           }
         }
@@ -110,7 +110,7 @@ function startGameLoop(gameRoom) {
         stopTimers();
       }
 
-      broadcast({ type: 'sfx', sound: 'end' });
+      room.pendingSfx.push('end');
       broadcast({ type: 'message', text: computeWinnerText() });
     }
 

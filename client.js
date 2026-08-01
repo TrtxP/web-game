@@ -9,6 +9,9 @@
     selectedMode: 'classic',
     selectedClass: 'none',
     classIcons: {},
+    prediction: null,
+    predictionSpeed: 220,
+    baseSpeed: 220,
   };
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
   const playSfx = app.createAudioPlayer();
@@ -150,10 +153,7 @@
     }
   }
 
-  setInterval(() => {
-    if (elements.gameScreen.classList.contains('hidden')) return;
-    sendInputToServer();
-  }, 1000 / 30);
+
 
   ws.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
@@ -161,6 +161,7 @@
       case 'joined':
         state.myId = message.you;
         state.arenaSize = message.arena;
+        state.baseSpeed = message.arena.playerSpeed || 220;
         elements.joinError.textContent = '';
         app.showScreen(elements, elements.lobby);
         showToast('Приєднано до лобі!');
@@ -187,9 +188,63 @@
         // Handled via state powerups array; sfx is separate
         break;
       case 'left':
+        state.prediction = null;
+        renderer.onState(message);
+        break;
       case 'state':
+        if (Array.isArray(message.sfx)) message.sfx.forEach((s) => playSfx(s));
+        if (state.myId && Array.isArray(message.players) && message.status === 'playing') {
+          const me = message.players.find((p) => p.id === state.myId);
+          if (me) {
+            state.predictionSpeed = (state.baseSpeed || 220) * (me.speedMul || 1);
+            if (!state.prediction) {
+              state.prediction = { x: me.x, y: me.y };
+            } else {
+              const dx = me.x - state.prediction.x;
+              const dy = me.y - state.prediction.y;
+              if (Math.abs(dx) > 80 || Math.abs(dy) > 80) {
+                state.prediction.x = me.x;
+                state.prediction.y = me.y;
+              } else {
+                state.prediction.x += dx * 0.3;
+                state.prediction.y += dy * 0.3;
+              }
+            }
+          }
+        } else {
+          state.prediction = null;
+        }
         renderer.onState(message);
         break;
     }
   });
+
+  // Client-side prediction loop
+  let lastPredTime = performance.now();
+  (function predictionLoop() {
+    const now = performance.now();
+    const dt = Math.min((now - lastPredTime) / 1000, 0.05);
+    lastPredTime = now;
+
+    if (state.prediction) {
+      const up = !!(pressedKeys.KeyW || pressedKeys.ArrowUp);
+      const down = !!(pressedKeys.KeyS || pressedKeys.ArrowDown);
+      const left = !!(pressedKeys.KeyA || pressedKeys.ArrowLeft);
+      const right = !!(pressedKeys.KeyD || pressedKeys.ArrowRight);
+      const ix = (right ? 1 : 0) - (left ? 1 : 0);
+      const iy = (down ? 1 : 0) - (up ? 1 : 0);
+
+      if (ix !== 0 || iy !== 0) {
+        const len = Math.hypot(ix, iy);
+        const speed = state.predictionSpeed || state.baseSpeed || 220;
+        state.prediction.x += (ix / len) * speed * dt;
+        state.prediction.y += (iy / len) * speed * dt;
+        const a = state.arenaSize;
+        state.prediction.x = Math.max(0, Math.min(a.w - a.playerSize, state.prediction.x));
+        state.prediction.y = Math.max(0, Math.min(a.h - a.playerSize, state.prediction.y));
+      }
+    }
+
+    requestAnimationFrame(predictionLoop);
+  })();
 })();

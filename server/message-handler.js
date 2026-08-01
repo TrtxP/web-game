@@ -1,4 +1,4 @@
-const { MAX_PLAYERS, ARENA_W, ARENA_H, PLAYER_SIZE, COIN_SIZE, PLAYER_CLASSES } = require('./config');
+const { MAX_PLAYERS, ARENA_W, ARENA_H, PLAYER_SIZE, PLAYER_SPEED, COIN_SIZE, PLAYER_CLASSES } = require('./config');
 const { GAME_MODES } = require('./game-modes');
 
 function send(ws, message) {
@@ -22,7 +22,7 @@ function createMessageHandler(gameRoom) {
         send(ws, {
           type: 'joined',
           you: player.id,
-          arena: { w: room.arenaW || ARENA_W, h: room.arenaH || ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE },
+          arena: { w: room.arenaW || ARENA_W, h: room.arenaH || ARENA_H, playerSize: PLAYER_SIZE, coinSize: COIN_SIZE, playerSpeed: PLAYER_SPEED },
           gameModes: Object.entries(GAME_MODES).map(([key, m]) => ({ key, label: m.label, description: m.description })),
           playerClasses: Object.entries(PLAYER_CLASSES).filter(([k]) => k !== 'none').map(([key, c]) => ({ key, label: c.label, icon: c.icon })),
         });

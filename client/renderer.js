@@ -214,16 +214,26 @@
         currentPlayers = new Map(message.players.map((player) => [player.id, player]));
       }
       const now = performance.now();
-      serverIntervalEstimate = now - lastServerTime || serverIntervalEstimate;
+      const rawInterval = now - lastServerTime;
+      if (rawInterval > 0 && rawInterval < 500) {
+        serverIntervalEstimate = serverIntervalEstimate * 0.7 + rawInterval * 0.3;
+      }
       lastServerTime = now;
     }
 
     function frame() {
-      const progress = Math.min(1, (performance.now() - lastServerTime) / serverIntervalEstimate);
+      const elapsed = performance.now() - lastServerTime;
+      const progress = Math.min(1, elapsed / (serverIntervalEstimate * 1.2));
       for (const [id, current] of currentPlayers) {
-        const previous = previousPlayers.get(id) || current;
-        const x = previous.x + (current.x - previous.x) * progress;
-        const y = previous.y + (current.y - previous.y) * progress;
+        let x, y;
+        if (id === state.myId && state.prediction) {
+          x = state.prediction.x;
+          y = state.prediction.y;
+        } else {
+          const previous = previousPlayers.get(id) || current;
+          x = previous.x + (current.x - previous.x) * progress;
+          y = previous.y + (current.y - previous.y) * progress;
+        }
         ensurePlayerElement(current).style.transform = `translate(${x}px, ${y}px)`;
       }
       for (const [id, element] of playerElements) {

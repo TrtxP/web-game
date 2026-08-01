@@ -30,6 +30,7 @@ function createGameRoom() {
     starSpawnTimer: null,
     shrinkInterval: null,
     powerupTimer: null,
+    pendingSfx: [],
   };
 
   const randPos = (max, margin = 40) => margin + Math.random() * (max - margin * 2);
@@ -105,12 +106,12 @@ function createGameRoom() {
       const warnId = uid('warn');
 
       broadcast({ type: 'starWarning', id: warnId, x, y, duration: 3000 });
-      broadcast({ type: 'sfx', sound: 'star_warning' });
+      room.pendingSfx.push('star_warning');
 
       room.starSpawnTimer = setTimeout(() => {
         if (room.status === 'playing') {
           room.coins.push(createCoin('star', 50, x, y));
-          broadcast({ type: 'sfx', sound: 'star_spawn' });
+          room.pendingSfx.push('star_spawn');
         }
         scheduleStarCoin();
       }, 3000);
@@ -131,7 +132,7 @@ function createGameRoom() {
           if (now - (p1.lastHitFx || 0) > 600 && now - (p2.lastHitFx || 0) > 600) {
             p1.lastHitFx = now;
             p2.lastHitFx = now;
-            broadcast({ type: 'sfx', sound: 'hit' });
+            room.pendingSfx.push('hit');
           }
 
           // Shield powerup grants full immunity
@@ -171,7 +172,7 @@ function createGameRoom() {
               if (victim.ws?.readyState === WebSocket.OPEN) {
                 victim.ws.send(JSON.stringify({ type: 'stolenFrom', amount: stolen }));
               }
-              broadcast({ type: 'sfx', sound: 'steal' });
+              room.pendingSfx.push('steal');
             }
           }
         }
@@ -191,23 +192,34 @@ function createGameRoom() {
 
   function publicPlayers() {
     const now = Date.now();
-    return [...room.players.values()].map((p) => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      x: p.x,
-      y: p.y,
-      score: p.score,
-      isLead: p.isLead,
-      isImmune: now < (p.immuneUntil || 0),
-      playerClass: p.playerClass || 'none',
-      activePowerup: p.activePowerup && now < p.activePowerup.expiresAt
-        ? { kind: p.activePowerup.kind }
-        : null,
-    }));
+    return [...room.players.values()].map((p) => {
+      const classDef = PLAYER_CLASSES[p.playerClass] || PLAYER_CLASSES.none;
+      let speedMul = classDef.speedMul;
+      if (p.activePowerup && p.activePowerup.kind === 'speed' && now < p.activePowerup.expiresAt) {
+        speedMul *= 1.6;
+      }
+      return {
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        x: Math.round(p.x),
+        y: Math.round(p.y),
+        score: p.score,
+        isLead: p.isLead,
+        isImmune: now < (p.immuneUntil || 0),
+        playerClass: p.playerClass || 'none',
+        activePowerup: p.activePowerup && now < p.activePowerup.expiresAt
+          ? { kind: p.activePowerup.kind }
+          : null,
+        speedMul,
+      };
+    });
   }
 
   function sendState() {
+    const sfx = room.pendingSfx.length > 0 ? room.pendingSfx : undefined;
+    room.pendingSfx = [];
+
     broadcast({
       type: 'state',
       status: room.status,
@@ -222,6 +234,7 @@ function createGameRoom() {
       players: publicPlayers(),
       coins: room.coins,
       powerups: room.powerups,
+      sfx,
     });
   }
 
@@ -231,6 +244,7 @@ function createGameRoom() {
     room.arenaH = ARENA_H;
     room.coins = freshCoins();
     room.powerups = [];
+    room.pendingSfx = [];
     room.timeLeft = ROUND_SECONDS;
     room.status = 'lobby';
     room.gameMode = 'classic';
@@ -262,7 +276,7 @@ function createGameRoom() {
 
     room.status = 'playing';
     startTimers();
-    broadcast({ type: 'sfx', sound: 'start' });
+    room.pendingSfx.push('start');
     sendState();
   }
 
@@ -307,7 +321,7 @@ function createGameRoom() {
     }
 
     room.players.delete(ws);
-    broadcast({ type: 'sfx', sound: 'loss' });
+    room.pendingSfx.push('loss');
     broadcast({ type: 'message', text: `${player.name} покинув(ла) гру.` });
 
     if (player.isLead && room.players.size > 0) {

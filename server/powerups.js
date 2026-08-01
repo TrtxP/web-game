@@ -94,7 +94,7 @@ function startPowerupTimer(room, broadcast, modeConfig) {
       if (room.status !== 'playing') return;
 
       const pu = spawnPowerup(room);
-      broadcast({ type: 'sfx', sound: 'powerup_spawn' });
+      room.pendingSfx.push('powerup_spawn');
       broadcast({ type: 'powerupSpawned', powerup: pu });
       schedule();
     }, delay);
