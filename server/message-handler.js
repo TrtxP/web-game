@@ -50,6 +50,8 @@ function createMessageHandler(gameRoom) {
         if (room.players.size < 2) {
           return send(ws, { type: 'joinError', reason: 'Потрібно мінімум 2 гравці.' });
         }
+        if (room.status === 'playing') return;
+
         const mode = msg.mode && GAME_MODES[msg.mode] ? msg.mode : 'classic';
         startGame(mode);
         const modeLabel = GAME_MODES[mode].label;
@@ -92,6 +94,8 @@ function createMessageHandler(gameRoom) {
           sendState();
           return send(ws, { type: 'message', text: 'Потрібно мінімум 2 гравці для нової гри.' });
         }
+        if (room.status === 'playing') return; // Запобігає подвійному кліку
+
         startGame();
         broadcast({ type: 'message', text: `${player.name} розпочав(ла) нову гру!` });
         break;
