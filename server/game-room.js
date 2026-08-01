@@ -7,7 +7,10 @@ const {
   COIN_COUNT,
   COIN_SIZE,
   COLORS,
+  PLAYER_CLASSES,
 } = require('./config');
+const { getModeConfig } = require('./game-modes');
+const { startPowerupTimer, stopPowerupTimer, POWERUP_DEFS } = require('./powerups');
 
 const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -17,12 +20,16 @@ function createGameRoom() {
     leadWs: null,
     status: 'lobby',
     coins: [],
+    powerups: [],
     timeLeft: ROUND_SECONDS,
     arenaW: ARENA_W,
     arenaH: ARENA_H,
+    gameMode: 'classic',
+    modeConfig: getModeConfig('classic'),
     starWarningTimer: null,
     starSpawnTimer: null,
     shrinkInterval: null,
+    powerupTimer: null,
   };
 
   const randPos = (max, margin = 40) => margin + Math.random() * (max - margin * 2);
@@ -35,8 +42,9 @@ function createGameRoom() {
     y: y ?? randPos(room.arenaH),
   });
 
-  function freshCoins() {
-    return Array.from({ length: COIN_COUNT }, () => createCoin());
+  function freshCoins(count) {
+    const n = count || room.modeConfig.coinCount || COIN_COUNT;
+    return Array.from({ length: n }, () => createCoin());
   }
 
   room.coins = freshCoins();
@@ -45,16 +53,19 @@ function createGameRoom() {
     clearTimeout(room.starWarningTimer);
     clearTimeout(room.starSpawnTimer);
     clearInterval(room.shrinkInterval);
+    stopPowerupTimer(room);
     room.starWarningTimer = room.starSpawnTimer = room.shrinkInterval = null;
   }
 
   function startTimers() {
     stopTimers();
+    const shrinkMs = room.modeConfig.shrinkIntervalMs || 20000;
     room.shrinkInterval = setInterval(() => {
       if (room.status === 'playing') shrinkArena();
-    }, 20000);
+    }, shrinkMs);
 
     scheduleStarCoin();
+    startPowerupTimer(room, broadcast, room.modeConfig);
   }
 
   function shrinkArena() {
@@ -70,11 +81,15 @@ function createGameRoom() {
     room.coins = room.coins.filter((c) => c.x <= room.arenaW - margin && c.y <= room.arenaH - margin);
 
     const standardCoins = room.coins.filter((c) => c.type === 'standard' || !c.type);
-    while (standardCoins.length < COIN_COUNT) {
+    const targetCount = room.modeConfig.coinCount || COIN_COUNT;
+    while (standardCoins.length < targetCount) {
       const newCoin = createCoin('standard', 10, randPos(room.arenaW, margin), randPos(room.arenaH, margin));
       room.coins.push(newCoin);
       standardCoins.push(newCoin);
     }
+
+    // Remove powerups outside arena
+    room.powerups = room.powerups.filter((p) => p.x <= room.arenaW - margin && p.y <= room.arenaH - margin);
 
     broadcast({ type: 'message', text: '⚠️ Арена звужується!' });
   }
@@ -105,6 +120,7 @@ function createGameRoom() {
   function handleTheft(now) {
     if (room.status !== 'playing') return;
     const players = [...room.players.values()];
+    const theftMul = room.modeConfig.theftMultiplier || 1.0;
 
     for (let i = 0; i < players.length; i++) {
       for (let j = i + 1; j < players.length; j++) {
@@ -118,8 +134,12 @@ function createGameRoom() {
             broadcast({ type: 'sfx', sound: 'hit' });
           }
 
-          const p1Immune = now < (p1.immuneUntil || 0);
-          const p2Immune = now < (p2.immuneUntil || 0);
+          // Shield powerup grants full immunity
+          const p1HasShield = p1.activePowerup && p1.activePowerup.kind === 'shield' && now < p1.activePowerup.expiresAt;
+          const p2HasShield = p2.activePowerup && p2.activePowerup.kind === 'shield' && now < p2.activePowerup.expiresAt;
+
+          const p1Immune = now < (p1.immuneUntil || 0) || p1HasShield;
+          const p2Immune = now < (p2.immuneUntil || 0) || p2HasShield;
 
           let attacker = null;
           let victim = null;
@@ -133,7 +153,13 @@ function createGameRoom() {
           }
 
           if (attacker && victim && victim.score > 0) {
-            const stolen = Math.floor(victim.score * 0.30);
+            // Apply class modifiers to theft percentage
+            const attackerClass = PLAYER_CLASSES[attacker.playerClass] || PLAYER_CLASSES.none;
+            const victimClass = PLAYER_CLASSES[victim.playerClass] || PLAYER_CLASSES.none;
+            const baseRate = 0.30 * theftMul;
+            const stealRate = baseRate * attackerClass.theftStealMul * victimClass.theftDefenseMul;
+            const stolen = Math.floor(victim.score * stealRate);
+
             if (stolen > 0) {
               victim.score -= stolen;
               attacker.score += stolen;
@@ -174,6 +200,10 @@ function createGameRoom() {
       score: p.score,
       isLead: p.isLead,
       isImmune: now < (p.immuneUntil || 0),
+      playerClass: p.playerClass || 'none',
+      activePowerup: p.activePowerup && now < p.activePowerup.expiresAt
+        ? { kind: p.activePowerup.kind }
+        : null,
     }));
   }
 
@@ -182,6 +212,7 @@ function createGameRoom() {
       type: 'state',
       status: room.status,
       timeLeft: Math.ceil(room.timeLeft),
+      gameMode: room.gameMode,
       arena: {
         w: room.arenaW,
         h: room.arenaH,
@@ -190,6 +221,7 @@ function createGameRoom() {
       },
       players: publicPlayers(),
       coins: room.coins,
+      powerups: room.powerups,
     });
   }
 
@@ -198,19 +230,36 @@ function createGameRoom() {
     room.arenaW = ARENA_W;
     room.arenaH = ARENA_H;
     room.coins = freshCoins();
+    room.powerups = [];
     room.timeLeft = ROUND_SECONDS;
     room.status = 'lobby';
+    room.gameMode = 'classic';
+    room.modeConfig = getModeConfig('classic');
 
     for (const player of room.players.values()) {
       player.score = 0;
       player.x = randPos(ARENA_W, 60);
       player.y = randPos(ARENA_H, 60);
       player.immuneUntil = 0;
+      player.activePowerup = null;
     }
   }
 
-  function startGame() {
+  function startGame(modeName) {
     resetGame();
+
+    // Apply game mode
+    const mode = modeName || 'classic';
+    room.gameMode = mode;
+    room.modeConfig = getModeConfig(mode);
+    room.timeLeft = room.modeConfig.roundSeconds || ROUND_SECONDS;
+    room.coins = freshCoins(room.modeConfig.coinCount);
+
+    if (room.modeConfig.arenaScale) {
+      room.arenaW = Math.floor(ARENA_W * room.modeConfig.arenaScale);
+      room.arenaH = Math.floor(ARENA_H * room.modeConfig.arenaScale);
+    }
+
     room.status = 'playing';
     startTimers();
     broadcast({ type: 'sfx', sound: 'start' });
@@ -240,6 +289,8 @@ function createGameRoom() {
       input: { x: 0, y: 0 },
       isLead: isFirst,
       immuneUntil: 0,
+      playerClass: 'none',
+      activePowerup: null,
     };
 
     if (isFirst) room.leadWs = ws;

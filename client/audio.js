@@ -90,6 +90,38 @@
           osc.start(startTime);
           osc.stop(startTime + 0.2);
         });
+      } else if (name === 'powerup_collect') {
+        // Bright ascending chime for powerup pickup
+        const now = audioContext.currentTime;
+        const notes = [660, 880, 1100, 1320];
+        notes.forEach((freq, idx) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const t = now + idx * 0.06;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+          osc.connect(gain).connect(audioContext.destination);
+          osc.start(t);
+          osc.stop(t + 0.15);
+        });
+      } else if (name === 'powerup_spawn') {
+        // Soft low shimmer to indicate a powerup appeared
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(392, now);
+        osc.frequency.linearRampToValueAtTime(523, now + 0.2);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain).connect(audioContext.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
       }
     };
   };

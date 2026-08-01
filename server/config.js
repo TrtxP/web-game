@@ -10,6 +10,15 @@ const COIN_SIZE = 16;
 const TICK_HZ = 30;
 const COLORS = ['#ff5d73', '#4fc3f7', '#ffd166', '#9b5de5'];
 
+/** Player class definitions with passive modifiers. */
+const PLAYER_CLASSES = {
+  none:     { label: 'Без класу',  icon: '',  speedMul: 1.0, collectRadiusMul: 1.0, theftStealMul: 1.0, theftDefenseMul: 1.0 },
+  sprinter: { label: 'Спринтер',  icon: '🏃', speedMul: 1.2, collectRadiusMul: 1.0, theftStealMul: 1.0, theftDefenseMul: 1.0 },
+  tank:     { label: 'Танк',      icon: '🛡️', speedMul: 1.0, collectRadiusMul: 1.0, theftStealMul: 1.0, theftDefenseMul: 0.5 },
+  magnet:   { label: 'Магніт',    icon: '🧲', speedMul: 1.0, collectRadiusMul: 1.5, theftStealMul: 1.0, theftDefenseMul: 1.0 },
+  thief:    { label: 'Злодій',    icon: '🗡️', speedMul: 1.0, collectRadiusMul: 1.0, theftStealMul: 1.5, theftDefenseMul: 1.0 },
+};
+
 module.exports = {
   PORT,
   MAX_PLAYERS,
@@ -22,4 +31,5 @@ module.exports = {
   COIN_SIZE,
   TICK_HZ,
   COLORS,
+  PLAYER_CLASSES,
 };

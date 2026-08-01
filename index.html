@@ -19,11 +19,24 @@
     </div>
   </section>
 
-  <!-- LOBBY SCREEN (Extracted to top-level so it won't disappear with joinScreen) -->
+  <!-- LOBBY SCREEN -->
   <section id="lobby" class="screen hidden">
-    <div class="card">
+    <div class="card lobby-card">
       <h2>Лобі</h2>
       <ul id="lobbyList"></ul>
+
+      <!-- Class Selector -->
+      <div id="classSelector" class="selector-group">
+        <p class="selector-label">Оберіть клас:</p>
+        <div id="classButtons" class="selector-buttons"></div>
+      </div>
+
+      <!-- Mode Selector (Leader Only) -->
+      <div id="modeSelector" class="selector-group hidden">
+        <p class="selector-label">Режим гри:</p>
+        <div id="modeButtons" class="selector-buttons"></div>
+      </div>
+
       <button id="startBtn" class="hidden">Почати гру (лідер)</button>
       <p id="lobbyHint" class="hint"></p>
     </div>
@@ -33,12 +46,15 @@
   <section id="gameScreen" class="screen hidden">
     <header id="hud">
       <div id="scoreboard"></div>
-      <div id="timer">90</div>
+      <div id="hudCenter">
+        <span id="modeLabel" class="mode-badge"></span>
+        <span id="timer">90</span>
+      </div>
       <button id="menuBtn">☰ Меню</button>
     </header>
 
     <div id="arena">
-      <!-- coins & players injected here as DOM elements -->
+      <!-- coins, powerups & players injected here as DOM elements -->
     </div>
 
     <div id="toast"></div>

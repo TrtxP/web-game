@@ -5,7 +5,9 @@ const {
   PLAYER_SPEED,
   COIN_SIZE,
   TICK_HZ,
+  PLAYER_CLASSES,
 } = require('./config');
+const { POWERUP_SIZE, tickPowerups, collectPowerup } = require('./powerups');
 
 function startGameLoop(gameRoom) {
   const {
@@ -35,10 +37,18 @@ function startGameLoop(gameRoom) {
     const arenaH = room.arenaH || ARENA_H;
 
     for (const player of room.players.values()) {
+      // Apply class speed modifier + speed powerup
+      const classDef = PLAYER_CLASSES[player.playerClass] || PLAYER_CLASSES.none;
+      let speedMul = classDef.speedMul;
+      if (player.activePowerup && player.activePowerup.kind === 'speed' && now < player.activePowerup.expiresAt) {
+        speedMul *= 1.6;
+      }
+
       const length = Math.hypot(player.input.x, player.input.y) || 1;
       const isMoving = player.input.x !== 0 || player.input.y !== 0;
-      const nextX = player.x + (player.input.x / length) * PLAYER_SPEED * dt * (isMoving ? 1 : 0);
-      const nextY = player.y + (player.input.y / length) * PLAYER_SPEED * dt * (isMoving ? 1 : 0);
+      const speed = PLAYER_SPEED * speedMul;
+      const nextX = player.x + (player.input.x / length) * speed * dt * (isMoving ? 1 : 0);
+      const nextY = player.y + (player.input.y / length) * speed * dt * (isMoving ? 1 : 0);
       player.x = Math.max(0, Math.min(arenaW - PLAYER_SIZE, nextX));
       player.y = Math.max(0, Math.min(arenaH - PLAYER_SIZE, nextY));
     }
@@ -48,14 +58,17 @@ function startGameLoop(gameRoom) {
       handleTheft(now);
     }
 
-    // 4. Process coin collections
+    // 4. Process coin collections (with class-based collection radius)
+    const targetCoinCount = (room.modeConfig && room.modeConfig.coinCount) || 12;
     room.coins = room.coins.filter((coin) => {
       for (const player of room.players.values()) {
+        const classDef = PLAYER_CLASSES[player.playerClass] || PLAYER_CLASSES.none;
         const dx = player.x + PLAYER_SIZE / 2 - coin.x;
         const dy = player.y + PLAYER_SIZE / 2 - coin.y;
         const coinRadius = coin.type === 'star' ? 12 : COIN_SIZE / 2;
+        const collectRadius = (PLAYER_SIZE / 2 + coinRadius) * classDef.collectRadiusMul;
 
-        if (Math.hypot(dx, dy) < PLAYER_SIZE / 2 + coinRadius) {
+        if (Math.hypot(dx, dy) < collectRadius) {
           player.score += coin.value || 10;
           broadcast({ type: 'sfx', sound: 'collect' });
           return false;
@@ -65,10 +78,30 @@ function startGameLoop(gameRoom) {
     });
 
     if (room.coins.length === 0) {
-      room.coins = freshCoins();
+      room.coins = freshCoins(targetCoinCount);
     }
 
-    // 5. Handle game over
+    // 5. Process powerup collections
+    if (room.powerups && room.powerups.length > 0) {
+      room.powerups = room.powerups.filter((pu) => {
+        for (const player of room.players.values()) {
+          const dx = player.x + PLAYER_SIZE / 2 - pu.x;
+          const dy = player.y + PLAYER_SIZE / 2 - pu.y;
+
+          if (Math.hypot(dx, dy) < PLAYER_SIZE / 2 + POWERUP_SIZE / 2) {
+            collectPowerup(player, pu);
+            broadcast({ type: 'sfx', sound: 'powerup_collect' });
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // 6. Tick active powerup effects (magnet pull, expiry)
+    tickPowerups(room, dt, PLAYER_SIZE, COIN_SIZE);
+
+    // 7. Handle game over
     if (room.timeLeft <= 0) {
       room.timeLeft = 0;
       room.status = 'ended';

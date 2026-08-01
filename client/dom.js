@@ -24,6 +24,12 @@
       winnerOverlay: document.getElementById('winnerOverlay'),
       winnerText: document.getElementById('winnerText'),
       playAgainBtn: document.getElementById('playAgainBtn'),
+      // New elements for classes, modes, powerups
+      classSelector: document.getElementById('classSelector'),
+      classButtons: document.getElementById('classButtons'),
+      modeSelector: document.getElementById('modeSelector'),
+      modeButtons: document.getElementById('modeButtons'),
+      modeLabel: document.getElementById('modeLabel'),
     };
   };
 

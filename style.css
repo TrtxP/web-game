@@ -41,6 +41,11 @@ body {
   text-align: center;
 }
 
+.lobby-card {
+  min-width: 380px;
+  max-width: 440px;
+}
+
 h1 {
   margin-top: 0;
 }
@@ -99,6 +104,57 @@ button:hover {
   padding: 4px 0;
 }
 
+/* ═══════════════════════════════════════════
+   Class & Mode Selector (Lobby)
+   ═══════════════════════════════════════════ */
+
+.selector-group {
+  margin-top: 14px;
+  text-align: left;
+}
+
+.selector-label {
+  font-size: 13px;
+  color: #9aa4b8;
+  margin-bottom: 6px;
+}
+
+.selector-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selector-btn {
+  width: auto;
+  flex: 1 1 auto;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: #10131b;
+  color: #9aa4b8;
+  border: 1px solid #2a3044;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0;
+}
+
+.selector-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.selector-btn.active {
+  background: var(--accent);
+  color: #041018;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════
+   HUD
+   ═══════════════════════════════════════════ */
+
 #hud {
   position: fixed;
   top: 0;
@@ -111,6 +167,12 @@ button:hover {
   background: #0d0f16;
   z-index: 5;
   transition: background 0.2s ease;
+}
+
+#hudCenter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 #scoreboard {
@@ -137,10 +199,42 @@ button:hover {
   font-weight: 700;
 }
 
+/* Mode Badge in HUD */
+.mode-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mode-classic {
+  background: rgba(79, 195, 247, 0.15);
+  color: #4fc3f7;
+  border: 1px solid rgba(79, 195, 247, 0.3);
+}
+
+.mode-blitz {
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, 0.3);
+}
+
+.mode-chaos {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 #menuBtn {
   width: auto;
   padding: 6px 14px;
 }
+
+/* ═══════════════════════════════════════════
+   Arena
+   ═══════════════════════════════════════════ */
 
 #arena {
   position: absolute;
@@ -156,6 +250,10 @@ button:hover {
   transition: width 0.4s ease, height 0.4s ease;
 }
 
+/* ═══════════════════════════════════════════
+   Players
+   ═══════════════════════════════════════════ */
+
 .player {
   position: absolute;
   width: 28px;
@@ -169,7 +267,7 @@ button:hover {
   font-size: 10px;
   font-weight: 700;
   color: #04101a;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, box-shadow 0.3s ease;
 }
 
 .player .label {
@@ -197,7 +295,44 @@ button:hover {
   }
 }
 
-/* Coin Types */
+/* ═══════════════════════════════════════════
+   Power-up Auras on Players
+   ═══════════════════════════════════════════ */
+
+.player.aura-speed {
+  box-shadow: 0 0 14px #facc15, 0 0 28px rgba(250, 204, 21, 0.4);
+  animation: pulseAuraSpeed 0.4s infinite alternate;
+}
+
+@keyframes pulseAuraSpeed {
+  0% { box-shadow: 0 0 10px #facc15, 0 0 20px rgba(250, 204, 21, 0.3); }
+  100% { box-shadow: 0 0 18px #fde047, 0 0 36px rgba(250, 204, 21, 0.5); }
+}
+
+.player.aura-shield {
+  box-shadow: 0 0 14px #4fc3f7, 0 0 28px rgba(79, 195, 247, 0.4);
+  animation: pulseAuraShield 0.6s infinite alternate;
+}
+
+@keyframes pulseAuraShield {
+  0% { box-shadow: 0 0 10px #4fc3f7, 0 0 22px rgba(79, 195, 247, 0.3); }
+  100% { box-shadow: 0 0 20px #81d4fa, 0 0 40px rgba(79, 195, 247, 0.5); }
+}
+
+.player.aura-magnet {
+  box-shadow: 0 0 14px #e879f9, 0 0 28px rgba(232, 121, 249, 0.4);
+  animation: pulseAuraMagnet 0.5s infinite alternate;
+}
+
+@keyframes pulseAuraMagnet {
+  0% { box-shadow: 0 0 10px #e879f9, 0 0 22px rgba(232, 121, 249, 0.3); }
+  100% { box-shadow: 0 0 20px #f0abfc, 0 0 40px rgba(232, 121, 249, 0.5); }
+}
+
+/* ═══════════════════════════════════════════
+   Coins
+   ═══════════════════════════════════════════ */
+
 .coin {
   position: absolute;
   width: 16px;
@@ -242,7 +377,58 @@ button:hover {
   }
 }
 
-/* 3-Second Star Coin Spawn Warning Indicator */
+/* ═══════════════════════════════════════════
+   Power-up Items on Arena
+   ═══════════════════════════════════════════ */
+
+.powerup {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  will-change: transform;
+  pointer-events: none;
+  animation: powerupBob 1s ease-in-out infinite alternate;
+  z-index: 2;
+}
+
+.powerup-speed {
+  background: radial-gradient(circle, #fef08a 20%, #f59e0b 90%);
+  border: 2px solid #facc15;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6), 0 0 24px rgba(250, 204, 21, 0.3);
+}
+
+.powerup-shield {
+  background: radial-gradient(circle, #bae6fd 20%, #0ea5e9 90%);
+  border: 2px solid #4fc3f7;
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.6), 0 0 24px rgba(79, 195, 247, 0.3);
+}
+
+.powerup-magnet {
+  background: radial-gradient(circle, #f5d0fe 20%, #c026d3 90%);
+  border: 2px solid #e879f9;
+  box-shadow: 0 0 12px rgba(232, 121, 249, 0.6), 0 0 24px rgba(232, 121, 249, 0.3);
+}
+
+@keyframes powerupBob {
+  0% {
+    transform: var(--pos-transform, translate(0, 0)) scale(1);
+    filter: brightness(1);
+  }
+  100% {
+    transform: var(--pos-transform, translate(0, 0)) scale(1.12);
+    filter: brightness(1.3);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Star Warning
+   ═══════════════════════════════════════════ */
+
 .star-warning {
   position: absolute;
   top: 0;
@@ -282,7 +468,10 @@ button:hover {
   }
 }
 
-/* Damage Shake & Red HUD Flash */
+/* ═══════════════════════════════════════════
+   Damage Shake & Red HUD Flash
+   ═══════════════════════════════════════════ */
+
 #gameScreen.shake {
   animation: screenShake 0.35s ease-in-out;
 }
@@ -311,6 +500,10 @@ button:hover {
   }
 }
 
+/* ═══════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════ */
+
 #toast {
   position: fixed;
   bottom: 20px;
@@ -329,6 +522,10 @@ button:hover {
   opacity: 1;
 }
 
+/* ═══════════════════════════════════════════
+   Overlay
+   ═══════════════════════════════════════════ */
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -339,7 +536,10 @@ button:hover {
   z-index: 10;
 }
 
-/* Colorblind & High-Contrast Mode */
+/* ═══════════════════════════════════════════
+   Colorblind & High-Contrast Mode
+   ═══════════════════════════════════════════ */
+
 body.colorblind-mode .player {
   border: 2px dashed #ffffff !important;
   outline: 2px solid #000000;

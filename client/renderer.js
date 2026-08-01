@@ -6,6 +6,10 @@
     let serverIntervalEstimate = 1000 / 30;
     const playerElements = new Map();
     const coinElements = new Map();
+    const powerupElements = new Map();
+
+    /** Map of mode keys to display labels. */
+    const MODE_LABELS = { classic: 'Classic', blitz: '⚡ Blitz', chaos: '🔥 Chaos' };
 
     function renderScoreboard(players) {
       elements.scoreboard.innerHTML = '';
@@ -13,9 +17,18 @@
       players.forEach((player) => {
         const chip = document.createElement('div');
         chip.className = 'score-chip';
-        chip.innerHTML = `<span class="dot" style="background:${player.color}"></span>${player.name}: ${player.score}`;
+        const classIcon = state.classIcons && state.classIcons[player.playerClass]
+          ? state.classIcons[player.playerClass] + ' '
+          : '';
+        const puIcon = player.activePowerup ? getPowerupIcon(player.activePowerup.kind) + ' ' : '';
+        chip.innerHTML = `<span class="dot" style="background:${player.color}"></span>${classIcon}${puIcon}${player.name}: ${player.score}`;
         elements.scoreboard.appendChild(chip);
       });
+    }
+
+    function getPowerupIcon(kind) {
+      const icons = { speed: '⚡', shield: '🛡️', magnet: '🧲' };
+      return icons[kind] || '';
     }
 
     function renderCoins(coins) {
@@ -41,6 +54,29 @@
       }
     }
 
+    function renderPowerups(powerups) {
+      if (!Array.isArray(powerups)) return;
+      const seen = new Set();
+      powerups.forEach((pu) => {
+        seen.add(pu.id);
+        let element = powerupElements.get(pu.id);
+        if (!element) {
+          element = document.createElement('div');
+          element.className = `powerup powerup-${pu.kind}`;
+          element.textContent = pu.icon;
+          elements.arena.appendChild(element);
+          powerupElements.set(pu.id, element);
+        }
+        element.style.setProperty('--pos-transform', `translate(${pu.x - 11}px, ${pu.y - 11}px)`);
+      });
+      for (const [id, element] of powerupElements) {
+        if (!seen.has(id)) {
+          element.remove();
+          powerupElements.delete(id);
+        }
+      }
+    }
+
     function ensurePlayerElement(player) {
       let element = playerElements.get(player.id);
       if (!element) {
@@ -55,6 +91,12 @@
         playerElements.set(player.id, element);
       }
       element.classList.toggle('immune', !!player.isImmune);
+
+      // Active powerup aura
+      element.classList.remove('aura-speed', 'aura-shield', 'aura-magnet');
+      if (player.activePowerup) {
+        element.classList.add(`aura-${player.activePowerup.kind}`);
+      }
       return element;
     }
 
@@ -63,6 +105,8 @@
       coinElements.clear();
       playerElements.forEach((el) => el.remove());
       playerElements.clear();
+      powerupElements.forEach((el) => el.remove());
+      powerupElements.clear();
     }
 
     function hideOverlays() {
@@ -105,7 +149,7 @@
         return;
       }
 
-      if (message.type === 'sfx' || message.type === 'message') {
+      if (message.type === 'sfx' || message.type === 'message' || message.type === 'powerupSpawned') {
         return;
       }
 
@@ -122,13 +166,19 @@
         elements.lobbyList.innerHTML = '';
         if (Array.isArray(message.players)) {
           message.players.forEach((player) => {
+            const classIcon = state.classIcons && state.classIcons[player.playerClass]
+              ? ' ' + state.classIcons[player.playerClass]
+              : '';
             const item = document.createElement('li');
-            item.textContent = `${player.name}${player.isLead ? ' 👑 (лідер)' : ''}`;
+            item.textContent = `${player.name}${player.isLead ? ' 👑 (лідер)' : ''}${classIcon}`;
             elements.lobbyList.appendChild(item);
           });
           const me = message.players.find((player) => player.id === state.myId);
           state.isLead = !!(me && me.isLead);
           elements.startBtn.classList.toggle('hidden', !state.isLead);
+          if (elements.modeSelector) {
+            elements.modeSelector.classList.toggle('hidden', !state.isLead);
+          }
           elements.lobbyHint.textContent = state.isLead
             ? (message.players.length >= 2 ? 'Ви можете почати гру.' : 'Потрібно мінімум 2 гравці.')
             : 'Очікуємо, поки лідер розпочне гру...';
@@ -137,6 +187,13 @@
       }
 
       showScreen(elements, elements.gameScreen);
+
+      // Show game mode badge
+      if (elements.modeLabel && message.gameMode) {
+        elements.modeLabel.textContent = MODE_LABELS[message.gameMode] || message.gameMode;
+        elements.modeLabel.className = `mode-badge mode-${message.gameMode}`;
+      }
+
       if (message.status === 'ended') {
         const sorted = Array.isArray(message.players) ? [...message.players].sort((a, b) => b.score - a.score) : [];
         elements.winnerText.textContent = sorted.length
@@ -150,6 +207,7 @@
       elements.timer.textContent = message.timeLeft ?? 0;
       renderScoreboard(message.players);
       renderCoins(message.coins);
+      renderPowerups(message.powerups);
 
       if (Array.isArray(message.players)) {
         previousPlayers = currentPlayers;
