@@ -145,12 +145,37 @@ function createGameRoom() {
           let attacker = null;
           let victim = null;
 
-          if (p1.score > p2.score && !p1Immune) {
-            attacker = p2;
-            victim = p1;
-          } else if (p2.score > p1.score && !p2Immune) {
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          const approach1 = p1.input.x * nx + p1.input.y * ny;
+          const approach2 = p2.input.x * (-nx) + p2.input.y * (-ny);
+
+          if (approach1 > approach2 + 0.1) {
             attacker = p1;
             victim = p2;
+          } else if (approach2 > approach1 + 0.1) {
+            attacker = p2;
+            victim = p1;
+          } else {
+            if (p1.score > p2.score) {
+              attacker = p2;
+              victim = p1;
+            } else if (p2.score > p1.score) {
+              attacker = p1;
+              victim = p2;
+            }
+          }
+
+          if (attacker && victim) {
+            const victimImmune = victim === p1 ? p1Immune : p2Immune;
+            if (victimImmune) {
+              attacker = null;
+              victim = null;
+            }
           }
 
           if (attacker && victim && victim.score > 0) {
