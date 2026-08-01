@@ -21,13 +21,6 @@ function serveStaticFiles(rootDirectory) {
       return;
     }
 
-    if (cache.has(filePath)) {
-      const cached = cache.get(filePath);
-      res.writeHead(200, { 'Content-Type': cached.type });
-      res.end(cached.data);
-      return;
-    }
-
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(404);
@@ -35,8 +28,7 @@ function serveStaticFiles(rootDirectory) {
         return;
       }
       const type = MIME[path.extname(filePath)] || 'application/octet-stream';
-      cache.set(filePath, { type, data });
-      res.writeHead(200, { 'Content-Type': type });
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
       res.end(data);
     });
   };

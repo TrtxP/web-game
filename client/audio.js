@@ -122,6 +122,25 @@
         osc.connect(gain).connect(audioContext.destination);
         osc.start(now);
         osc.stop(now + 0.25);
+      } else if (name === 'quit') {
+        // Gentle descending chime for exiting
+        const now = audioContext.currentTime;
+        const notes = [880, 660, 440, 330];
+        notes.forEach((freq, idx) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const t = now + idx * 0.12;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+          osc.connect(gain).connect(audioContext.destination);
+          osc.start(t);
+          osc.stop(t + 0.3);
+        });
       }
     };
   };

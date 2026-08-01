@@ -130,6 +130,7 @@
     showToast(isActive ? '👁️ Режим для дальтоніків увімкнено' : '👁️ Режим для дальтоніків вимкнено');
   });
   elements.quitBtn.addEventListener('click', () => {
+    playSfx('quit');
     ws.send(JSON.stringify({ type: 'menuAction', action: 'quit' }));
     elements.menuOverlay.classList.add('hidden');
   });
