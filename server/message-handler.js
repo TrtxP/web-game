@@ -94,7 +94,7 @@ function createMessageHandler(gameRoom) {
           sendState();
           return send(ws, { type: 'message', text: 'Потрібно мінімум 2 гравці для нової гри.' });
         }
-        if (room.status === 'playing') return; // Запобігає подвійному кліку
+        if (room.status === 'playing') return;
 
         startGame();
         broadcast({ type: 'message', text: `${player.name} розпочав(ла) нову гру!` });
