@@ -172,7 +172,8 @@ function createGameRoom() {
 
           if (attacker && victim) {
             const victimImmune = victim === p1 ? p1Immune : p2Immune;
-            if (victimImmune) {
+            const attackerImmune = attacker === p1 ? p1Immune : p2Immune;
+            if (victimImmune || attackerImmune) {
               attacker = null;
               victim = null;
             }
